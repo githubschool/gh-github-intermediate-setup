@@ -1,0 +1,8 @@
+.DS_Store
+_site/
+node_modules/
+*.yaml
+coverage/
+dist/
+node_modules/
+reports/
