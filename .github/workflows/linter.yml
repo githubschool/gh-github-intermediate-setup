@@ -1,0 +1,49 @@
+name: Lint Codebase
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint Codebase
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      issues: write
+      packages: read
+      pull-requests: write
+      statuses: write
+
+    steps:
+      # Checkout the repository.
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+
+      # Setup Node.js using the version specified in `.node-version`.
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      # Install dependencies using `npm ci`.
+      - name: Install Dependencies
+        id: install
+        run: npm ci
+
+      - name: Lint Codebase
+        id: lint-codebase
+        env:
+          DEFAULT_WORKSPACE: ${{ github.workspace }}
+          GITHUB_TOKEN: ${{ github.token }}
+        uses: oxsecurity/megalinter/flavors/cupcake@v8

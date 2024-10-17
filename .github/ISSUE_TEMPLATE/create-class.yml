@@ -1,0 +1,72 @@
+name: Create a Class
+description: Create a GitHub Intermediate Class
+title: '[Create] <CUSTOMER_NAME>'
+assignees:
+  - ncalteen
+body:
+  - type: markdown
+    attributes:
+      value:
+        This form will kick off creation of a new GitHub Intermediate class
+        environment for you. Please fill out the form below and click the
+        `Submit new issue` button. A comment will be added to the issue when the
+        request has been validated.
+  - type: input
+    id: customer-name
+    attributes:
+      label: Customer Name
+      description: The name of the customer.
+      placeholder: Octocat Enterprises
+    validations:
+      required: true
+  - type: input
+    id: customer-abbr
+    attributes:
+      label: Customer Abbreviation
+      description: A 2-3 character abbreviation for the customer.
+      placeholder: OCT
+    validations:
+      required: true
+  - type: input
+    id: start-date
+    attributes:
+      label: Start Date
+      description: The start date in `YYYY-MM-DD`` format.
+      placeholder: '2024-01-01'
+    validations:
+      required: true
+  - type: input
+    id: end-date
+    attributes:
+      label: End Date
+      description:
+        The end date in `YYYY-MM-DD`` format. Access will be revoked when this
+        date has passed!
+      placeholder: '2024-01-15'
+    validations:
+      required: true
+  - type: textarea
+    id: administrators
+    attributes:
+      label: Administrators
+      description:
+        A list of GitHub handles and emails to add as repository administrators.
+        This should include anyone who will be delivering or supporting delivery
+        of this training.
+      placeholder: |
+        ncalteen,ncalteen@github.com
+        octocat,octocat@github.com
+      render: CSV
+    validations:
+      required: true
+  - type: textarea
+    id: attendees
+    attributes:
+      label: Attendees
+      description: A list of GitHub handles and emails to add as members.
+      placeholder: |
+        ncalteen,ncalteen@github.com
+        octocat,octocat@github.com
+      render: CSV
+    validations:
+      required: true

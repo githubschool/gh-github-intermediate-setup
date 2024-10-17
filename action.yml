@@ -1,0 +1,30 @@
+name: GitHub Intermediate IssueOps Automation Action
+description: Automates management of GitHub Intermediate deliveries
+author: Nick Alteen <ncalteen@github.com>
+
+inputs:
+  action:
+    description:
+      The action to perform. You can either `create` a new class, `add` a user
+      to an existing class, `remove` a user from an existing class, `close` an
+      existing class, or `extend` an existing class.
+    required: true
+  github_token:
+    description: The GitHub token used to authenticate with the GitHub API
+    required: true
+  workspace:
+    description: The path to the workspace
+    required: true
+    default: ${{ github.workspace }}
+
+outputs:
+  deleted:
+    description: Repositories that have been deleted
+  existing:
+    description: Existing repositories that were already created
+  new:
+    description: New repositories that have been created
+
+runs:
+  using: node20
+  main: dist/index.js

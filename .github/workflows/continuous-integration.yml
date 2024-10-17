@@ -1,0 +1,58 @@
+# Whenever a pull request is created or updated, this workflow will:
+#   - Checkout the repository
+#   - Install Node.js and dependencies
+#   - Check the format of the code
+#   - Lint the code
+#   - Test the code
+#
+# Each of the `npm` steps is defined in the `scripts` section of `package.json`.
+name: Continuous Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  checks: write
+  contents: read
+
+jobs:
+  continuous-integration:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository.
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+
+      # Setup Node.js using the version specified in `.node-version`.
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      # Install dependencies using `npm ci`.
+      - name: Install Dependencies
+        id: install
+        run: npm ci
+
+      # Check the format of the code.
+      - name: Check Format
+        id: format-check
+        run: npm run format:check
+
+      # Lint the code.
+      - name: Lint
+        id: lint
+        run: npm run lint
+
+      # Test the code.
+      - name: Test
+        id: test
+        run: npm run ci-test
