@@ -31435,7 +31435,6 @@ async function create$1(request, user, team) {
     // Create the authenticated Octokit client.
     const token = coreExports.getInput('github_token', { required: true });
     const octokit = githubExports.getOctokit(token);
-    // TODO: Check if the repo already exists.
     const response = await octokit.rest.repos.createUsingTemplate({
         template_owner: Common.OWNER,
         template_repo: Common.TEMPLATE_REPO,
@@ -31443,8 +31442,15 @@ async function create$1(request, user, team) {
         name: generateRepoName(request, user),
         description: `GitHub Intermediate - ${request.customerName}`,
         include_all_branches: true,
-        visibility: 'private',
-        team_id: team.id
+        private: true
+    });
+    // Grant the team access to the repository.
+    await octokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
+        org: Common.OWNER,
+        team_slug: team.slug,
+        owner: Common.OWNER,
+        repo: response.data.name,
+        permission: 'admin'
     });
     return response.data.name;
 }
@@ -31479,7 +31485,7 @@ async function configure(request, user, repo, team) {
     await octokit.rest.repos.update({
         owner: Common.OWNER,
         repo,
-        homepage: response.data.url
+        homepage: response.data.html_url
     });
     // Configure the exec options.
     const options = {
@@ -31779,6 +31785,7 @@ async function run() {
         const request = parse(payload.issue, action);
         if (action === AllowedIssueAction.CREATE) {
             coreExports.info('Processing Class Create');
+            // TODO: Check if team, repos, and/or users already exist and fail if they do.
             // Create the team and add the users.
             const team = await create(request);
             // Create and configure the repositories.

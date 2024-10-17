@@ -32,7 +32,6 @@ export async function create(
   const token: string = core.getInput('github_token', { required: true })
   const octokit = github.getOctokit(token)
 
-  // TODO: Check if the repo already exists.
   const response = await octokit.rest.repos.createUsingTemplate({
     template_owner: Common.OWNER,
     template_repo: Common.TEMPLATE_REPO,
@@ -40,8 +39,16 @@ export async function create(
     name: generateRepoName(request, user),
     description: `GitHub Intermediate - ${request.customerName}`,
     include_all_branches: true,
-    visibility: 'private',
-    team_id: team.id
+    private: true
+  })
+
+  // Grant the team access to the repository.
+  await octokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
+    org: Common.OWNER,
+    team_slug: team.slug,
+    owner: Common.OWNER,
+    repo: response.data.name,
+    permission: 'admin'
   })
 
   return response.data.name
@@ -88,7 +95,7 @@ export async function configure(
   await octokit.rest.repos.update({
     owner: Common.OWNER,
     repo,
-    homepage: response.data.url
+    homepage: response.data.html_url
   })
 
   // Configure the exec options.

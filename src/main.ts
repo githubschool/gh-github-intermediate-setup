@@ -60,6 +60,8 @@ export async function run(): Promise<void> {
     if (action === AllowedIssueAction.CREATE) {
       core.info('Processing Class Create')
 
+      // TODO: Check if team, repos, and/or users already exist and fail if they do.
+
       // Create the team and add the users.
       const team = await teams.create(request)
 
