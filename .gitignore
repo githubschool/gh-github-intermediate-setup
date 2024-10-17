@@ -59,6 +59,7 @@ Thumbs.db
 # Extra
 tmp/
 .env
+local/
 
 # Testing output
 junit.xml
