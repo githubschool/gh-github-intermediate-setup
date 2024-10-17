@@ -31319,13 +31319,14 @@ function parse(issue, action) {
     coreExports.info(`Parsing Class Request: #${issue.number}`);
     const noResponse = '_No response_';
     const regexes = {
-        customerName: /Customer Name:\*\* (?<customerName>[^\r\n]+)/,
-        customerAbbr: /Customer Abbreviation:\*\* (?<customerAbbr>[^\r\n]+)/,
-        startDate: /Start Date:\*\* (?<startDate>[^\r\n]+)/,
-        endDate: /End Date:\*\* (?<endDate>[^\r\n]+)/,
-        administrators: /Administrators:\*\* (?<administrators>[^\r\n]+)/,
-        attendees: /Attendeesp:\*\* (?<attendees>[^\r\n]+)/
+        customerName: /### Customer Name[\r\n]+(?<customerName>[\s\S]*?)(?=###|$)/,
+        customerAbbr: /### Customer Abbreviation[\r\n]+(?<customerAbbr>[\s\S]*?)(?=###|$)/,
+        startDate: /### Start Date[\r\n]+(?<startDate>[\s\S]*?)(?=###|$)/,
+        endDate: /### End Date[\r\n]+(?<endDate>[\s\S]*?)(?=###|$)/,
+        administrators: /### Administrators[\r\n]+(?<administrators>[\s\S]*?)(?=###|$)/,
+        attendees: /### Attendees[\r\n]+(?<attendees>[\s\S]*?)(?=###|$)/
     };
+    //### *(?<key>.*?)\s*[\r\n]+(?<value>[\s\S]*?)(?=###|$)
     // Get the PR body and check that it isn't empty
     const body = issue.body;
     if (body === null)
