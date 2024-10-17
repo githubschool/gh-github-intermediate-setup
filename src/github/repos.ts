@@ -121,6 +121,11 @@ export async function configure(
     ],
     options
   )
+
+  // Update the working directory to the checked out repository.
+  options.cwd = `${workspace}/${repo}`
+
+  // Update the remote URL to use the token.
   await exec.exec(
     'git',
     [
@@ -131,9 +136,6 @@ export async function configure(
     ],
     options
   )
-
-  // Update the working directory to the checked out repository.
-  options.cwd = `${workspace}/${repo}`
 
   // Configure the Git user.
   core.info('Configuring Git')

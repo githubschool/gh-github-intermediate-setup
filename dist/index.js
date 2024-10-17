@@ -31505,14 +31505,15 @@ async function configure(request, user, repo, team) {
         'clone',
         `https://x-access-token:${token}@github.com/${Common.OWNER}/${repo}.git`
     ], options);
+    // Update the working directory to the checked out repository.
+    options.cwd = `${workspace}/${repo}`;
+    // Update the remote URL to use the token.
     await execExports.exec('git', [
         'remote',
         'set-url',
         'origin',
         `https://x-access-token:${token}@github.com/${Common.OWNER}/${repo}.git`
     ], options);
-    // Update the working directory to the checked out repository.
-    options.cwd = `${workspace}/${repo}`;
     // Configure the Git user.
     coreExports.info('Configuring Git');
     await execExports.exec('git', ['config', 'user.name', `"${Bot.USER}"`], options);
