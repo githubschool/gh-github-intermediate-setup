@@ -3,6 +3,8 @@ description: Create a GitHub Intermediate Class
 title: '[Create] <CUSTOMER_NAME>'
 assignees:
   - ncalteen
+labels:
+  - gh-intermediate-class
 body:
   - type: markdown
     attributes:
