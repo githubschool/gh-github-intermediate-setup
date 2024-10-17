@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Get GitHub App Token
         id: token
-        uses: actions/create-github-app-token@main
+        uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.ISSUEOPS_APP_ID }}
           private-key: ${{ secrets.ISSUEOPS_APP_PEM_FILE }}
@@ -29,7 +29,7 @@ jobs:
 
       - name: Process IssueOps Request
         id: process
-        uses: githubschool/gh-github-intermediate-issueops@v1
+        uses: githubschool/gh-github-intermediate-issueops@main
         with:
           action: create
           github_token: ${{ steps.token.outputs.token }}
