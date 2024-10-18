@@ -31274,8 +31274,6 @@ var AllowedIssueCommentAction;
     AllowedIssueCommentAction["ADD_ADMIN"] = "add-admin";
     /** Add a User */
     AllowedIssueCommentAction["ADD_USER"] = "add-user";
-    /** Extend a Class */
-    AllowedIssueCommentAction["EXTEND"] = "extend";
     /** Remove an Administrator */
     AllowedIssueCommentAction["REMOVE_ADMIN"] = "remove-admin";
     /** Remove a User */
@@ -31284,7 +31282,7 @@ var AllowedIssueCommentAction;
 /** Fast Track Bot (GitHub App) */
 var Bot;
 (function (Bot) {
-    /** Email Address */ // TODO: Need correct ID...
+    /** Email Address */
     Bot["EMAIL"] = "153844374+gh-intermediate-issueops[bot]@users.noreply.github.com";
     /** User Name */
     Bot["USER"] = "gh-intermediate-issueops[bot]";
@@ -31299,21 +31297,546 @@ var Common;
     /** Template Repositoriy */
     Common["TEMPLATE_REPO"] = "gh-github-intermediate-template";
 })(Common || (Common = {}));
-/** Environment Names */
-var Environments;
-(function (Environments) {
-    /** Dev */
-    Environments["DEV"] = "dev";
-    /** Prod */
-    Environments["PROD"] = "prod";
-})(Environments || (Environments = {}));
+
+var execExports = requireExec();
+
+/**
+ * Generates the team name for this class.
+ *
+ * @param request Class Request
+ */
+function generateTeamName(request) {
+    return `gh-int-${request.customerAbbr.toLowerCase()}`;
+}
+/**
+ * Checks if the team exists.
+ *
+ * @param request Class Request
+ * @returns True if Team Exists
+ */
+async function exists$1(request) {
+    coreExports.info('Checking if Class Team Exists');
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    try {
+        await octokit.rest.teams.getByName({
+            org: Common.OWNER,
+            team_slug: generateTeamName(request)
+        });
+    }
+    catch (error) {
+        coreExports.info(`Error: ${error.status}`);
+        if (error.status === 404)
+            return false;
+    }
+    coreExports.info(`Class Team Exists: ${generateTeamName(request)}`);
+    return true;
+}
+/**
+ * Gets the team.
+ *
+ * @param request Class Request
+ * @returns Team Information
+ */
+async function get(request) {
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    const response = await octokit.rest.teams.getByName({
+        org: Common.OWNER,
+        team_slug: generateTeamName(request)
+    });
+    return {
+        slug: response.data.slug,
+        id: response.data.id
+    };
+}
+/**
+ * Creates the team for this class.
+ *
+ * @param request Class Request
+ * @returns Team Information
+ */
+async function create$2(request) {
+    coreExports.info('Creating Class Team');
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Create the team. Add the class administrators as maintainers.
+    const response = await octokit.rest.teams.create({
+        org: Common.OWNER,
+        name: generateTeamName(request),
+        maintainers: request.administrators.map((user) => {
+            return user.handle;
+        })
+    });
+    // Add the users to the team.
+    for (const user of request.attendees)
+        await addUser$1(request, user, 'member');
+    coreExports.info(`Created Class Team: ${generateTeamName(request)}`);
+    return { slug: response.data.slug, id: response.data.id };
+}
+/**
+ * Adds a member to the team.
+ *
+ * @param request Class Request
+ * @param user User to Add
+ */
+async function addUser$1(request, user, role = 'member') {
+    coreExports.info(`Adding User to Class Team: ${user.handle}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Add the user to the team.
+    await octokit.rest.teams.addOrUpdateMembershipForUserInOrg({
+        org: Common.OWNER,
+        team_slug: generateTeamName(request),
+        username: user.handle,
+        role
+    });
+    coreExports.info(`Added User to Class Team: ${user.handle}`);
+}
+/**
+ * Deletes the team.
+ *
+ * @param request Class Request
+ */
+async function deleteTeam(request) {
+    coreExports.info(`Deleting Team: ${generateTeamName(request)}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // If the team exists, delete it.
+    if (await exists$1(request))
+        await octokit.rest.teams.deleteInOrg({
+            org: Common.OWNER,
+            team_slug: generateTeamName(request)
+        });
+    coreExports.info(`Deleted Team: ${generateTeamName(request)}`);
+}
+/**
+ * Gets the members of the team.
+ *
+ * @param request Class Request
+ * @returns Team Members
+ */
+async function getMembers(request) {
+    coreExports.info(`Getting Members of Team: ${generateTeamName(request)}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Get the members of the team.
+    const response = await octokit.rest.teams.listMembersInOrg({
+        org: Common.OWNER,
+        team_slug: generateTeamName(request)
+    });
+    coreExports.info(`Got Members of Team: ${generateTeamName(request)}`);
+    return response.data.map((user) => {
+        return { handle: user.login, email: user.email };
+    });
+}
+
+/**
+ * Generates the repository name for this class and user.
+ *
+ * @param request Class Request
+ * @param user User
+ */
+function generateRepoName(request, user) {
+    return `gh-int-${request.customerAbbr.toLowerCase()}-${user.handle}`;
+}
+/**
+ * Creates a repository for an attendee.
+ *
+ * @param request Class Request
+ * @param team Team
+ * @returns Repository Name
+ */
+async function create$1(request, user, team) {
+    coreExports.info(`Creating Attendee Repository: ${generateRepoName(request, user)}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    const response = await octokit.rest.repos.createUsingTemplate({
+        template_owner: Common.OWNER,
+        template_repo: Common.TEMPLATE_REPO,
+        owner: Common.OWNER,
+        name: generateRepoName(request, user),
+        description: `GitHub Intermediate - ${request.customerName}`,
+        include_all_branches: true,
+        private: true
+    });
+    // Grant the team access to the repository.
+    await octokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
+        org: Common.OWNER,
+        team_slug: team.slug,
+        owner: Common.OWNER,
+        repo: response.data.name,
+        permission: 'admin'
+    });
+    coreExports.info(`Created Attendee Repository: ${generateRepoName(request, user)}`);
+    return response.data.name;
+}
+/**
+ * Checks if the repository exists.
+ *
+ * @param request Class Request
+ * @param user User
+ * @returns True if the Repository Exists
+ */
+async function exists(request, user) {
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    try {
+        await octokit.rest.repos.get({
+            owner: Common.OWNER,
+            repo: generateRepoName(request, user)
+        });
+    }
+    catch (error) {
+        coreExports.info(`Error: ${error.status}`);
+        if (error.status === 404)
+            return false;
+    }
+    coreExports.info(`Repo Exists: ${generateRepoName(request, user)}`);
+    return true;
+}
+/**
+ * Configures an attendee repository.
+ *
+ * @param request Class Request
+ * @param user User
+ * @param repo Repository Name
+ * @param team Team
+ */
+async function configure(request, user, repo, team) {
+    coreExports.info(`Configuring Attendee Repository: ${repo}`);
+    const workspace = coreExports.getInput('workspace', { required: true });
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Create the deployments environment.
+    await octokit.rest.repos.createOrUpdateEnvironment({
+        owner: Common.OWNER,
+        repo,
+        environment_name: 'deployments'
+    });
+    // Configure GitHub Pages.
+    const response = await octokit.rest.repos.createPagesSite({
+        owner: Common.OWNER,
+        repo,
+        build_type: 'workflow'
+    });
+    // Update the About page of the repo to include the URL.
+    await octokit.rest.repos.update({
+        owner: Common.OWNER,
+        repo,
+        homepage: response.data.html_url
+    });
+    // Configure the exec options.
+    const options = {
+        cwd: workspace,
+        listeners: {
+            stdout: (data) => {
+                coreExports.info(data.toString());
+            },
+            stderr: (data) => {
+                coreExports.error(data.toString());
+            }
+        }
+    };
+    // Clone the repository to the local workspace.
+    coreExports.info(`Cloning ${repo} to ${workspace}/${repo}`);
+    await execExports.exec('git', [
+        'clone',
+        `https://x-access-token:${token}@github.com/${Common.OWNER}/${repo}.git`
+    ], options);
+    // Update the working directory to the checked out repository.
+    options.cwd = `${workspace}/${repo}`;
+    // Update the remote URL to use the token.
+    await execExports.exec('git', [
+        'remote',
+        'set-url',
+        'origin',
+        `https://x-access-token:${token}@github.com/${Common.OWNER}/${repo}.git`
+    ], options);
+    // Configure the Git user.
+    coreExports.info('Configuring Git');
+    await execExports.exec('git', ['config', 'user.name', `"${Bot.USER}"`], options);
+    await execExports.exec('git', ['config', 'user.email', `"${Bot.EMAIL}"`], options);
+    // Configure the labs
+    await configureLab1();
+    await configureLab2();
+    await configureLab3();
+    await configureLab4();
+    await configureLab5();
+    await configureLab6();
+    await configureLab7();
+    await configureLab8();
+    await configureLab9();
+    await configureLab10();
+    await configureLab11();
+    coreExports.info(`Configured Attendee Repository: ${repo}`);
+}
+/**
+ * Deletes all class repositories.
+ *
+ * @param request Class Request
+ */
+async function deleteRepositories(request) {
+    coreExports.info(`Deleting Repositories: #${request.customerAbbr}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Get the team members.
+    const members = await getMembers(request);
+    // Delete the repositories for each member.
+    for (const member of members) {
+        coreExports.info(`Deleting Repository: ${generateRepoName(request, member)}`);
+        if (await exists(request, member))
+            await octokit.rest.repos.delete({
+                owner: Common.OWNER,
+                repo: generateRepoName(request, member)
+            });
+    }
+    coreExports.info(`Deleted Repositories: ${request.customerAbbr}`);
+}
+/**
+ * Configure Lab 1: Add a Feature
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab1(options, octokit) {
+    coreExports.info('Configuring Lab 1: Add a Feature');
+    // Nothing needs to be done...
+    coreExports.info('Configured Lab 1: Add a Feature');
+}
+/**
+ * Configure Lab 2: Add Tags
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab2(options, octokit) {
+    coreExports.info('Configuring Lab 2: Add Tags');
+    // Nothing needs to be done...
+    coreExports.info('Configured Lab 2: Add Tags');
+}
+/**
+ * Configure Lab 3: Git Bisect
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab3(options, octokit) {
+    coreExports.info('Configuring Lab 3: Git Bisect');
+    // // Commit the updates.
+    // core.info('Committing Changes')
+    // await exec.exec('git', ['add', '.'], options)
+    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+    // core.info('Pushing changes')
+    // await exec.exec('git', ['push'], options)
+    coreExports.info('Configured Lab 3: Git Bisect');
+}
+/**
+ * Configure Lab 4: Interactive Rebase
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab4(options, octokit) {
+    coreExports.info('Configuring Lab 4: Interactive Rebase');
+    // // Commit the updates.
+    // core.info('Committing Changes')
+    // await exec.exec('git', ['add', '.'], options)
+    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+    // core.info('Pushing changes')
+    // await exec.exec('git', ['push'], options)
+    coreExports.info('Configured Lab 4: Interactive Rebase');
+}
+/**
+ * Configure Lab 5: Cherry-Pick
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab5(options, octokit) {
+    coreExports.info('Configuring Lab 5: Cherry-Pick');
+    // // Commit the updates.
+    // core.info('Committing Changes')
+    // await exec.exec('git', ['add', '.'], options)
+    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+    // core.info('Pushing changes')
+    // await exec.exec('git', ['push'], options)
+    coreExports.info('Configured Lab 5: Cherry-Pick');
+}
+/**
+ * Configure Lab 6: Protect Main
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab6(options, octokit) {
+    coreExports.info('Configuring Lab 6: Protect Main');
+    // // Commit the updates.
+    // core.info('Committing Changes')
+    // await exec.exec('git', ['add', '.'], options)
+    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+    // core.info('Pushing changes')
+    // await exec.exec('git', ['push'], options)
+    coreExports.info('Configured Lab 6: Protect Main');
+}
+/**
+ * Configure Lab 7: GitHub Flow
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab7(options, octokit) {
+    coreExports.info('Configuring Lab 7: GitHub Flow');
+    // // Commit the updates.
+    // core.info('Committing Changes')
+    // await exec.exec('git', ['add', '.'], options)
+    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+    // core.info('Pushing changes')
+    // await exec.exec('git', ['push'], options)
+    coreExports.info('Configured Lab 7: GitHub Flow');
+}
+/**
+ * Configure Lab 8: Merge Conflicts
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab8(options, octokit) {
+    coreExports.info('Configuring Lab 8: Merge Conflicts');
+    // // Commit the updates.
+    // core.info('Committing Changes')
+    // await exec.exec('git', ['add', '.'], options)
+    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+    // core.info('Pushing changes')
+    // await exec.exec('git', ['push'], options)
+    coreExports.info('Configured Lab 8: Merge Conflicts');
+}
+/**
+ * Configure Lab 9: Run a Workflow
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab9(options, octokit) {
+    coreExports.info('Configuring Lab 9: Run a Workflow');
+    // // Commit the updates.
+    // core.info('Committing Changes')
+    // await exec.exec('git', ['add', '.'], options)
+    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+    // core.info('Pushing changes')
+    // await exec.exec('git', ['push'], options)
+    coreExports.info('Configured Lab 9: Run a Workflow');
+}
+/**
+ * Configure Lab 10: Create a Release
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab10(options, octokit) {
+    coreExports.info('Configuring Lab 10: Create a Release');
+    // // Commit the updates.
+    // core.info('Committing Changes')
+    // await exec.exec('git', ['add', '.'], options)
+    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+    // core.info('Pushing changes')
+    // await exec.exec('git', ['push'], options)
+    coreExports.info('Configured Lab 10: Create a Release');
+}
+/**
+ * Configure Lab 11: Deploy to an Environment
+ *
+ * @param options Exec Options
+ * @param octokit Octokit Client
+ */
+async function configureLab11(options, octokit) {
+    coreExports.info('Configuring Lab 11: Deploy to an Environment');
+    // // Commit the updates.
+    // core.info('Committing Changes')
+    // await exec.exec('git', ['add', '.'], options)
+    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+    // core.info('Pushing changes')
+    // await exec.exec('git', ['push'], options)
+    coreExports.info('Configured Lab 11: Deploy to an Environment');
+}
+
+/**
+ * Checks if the user is a member of the organization.
+ *
+ * @param handle User Handle
+ * @returns True if User is Member
+ */
+async function isOrgMember(handle) {
+    coreExports.info(`Checking if User is Org Member: ${handle}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    try {
+        await octokit.rest.orgs.getMembershipForUser({
+            org: Common.OWNER,
+            username: handle
+        });
+    }
+    catch (error) {
+        coreExports.info(`Error: ${error.status}`);
+        if (error.status === 404)
+            return false;
+    }
+    coreExports.info(`User is Org Member: ${handle}`);
+    return true;
+}
+/**
+ * Removes all users in this class from the organization.
+ *
+ * @param request Class Request
+ */
+async function removeUsers(request) {
+    coreExports.info(`Removing Users from the Organization: ${Common.OWNER}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Get the team members.
+    const members = await getMembers(request);
+    for (const member of members) {
+        coreExports.info(`Removing User: ${member.handle}`);
+        // Check if the user is a GitHub/Microsoft employee.
+        const response = await octokit.graphql(`
+        query($login: String!) {
+          user(login: $login) {
+            isEmployee
+            email
+          }
+        }
+        `, { login: member.handle });
+        // Remove the user from the organization (if they're not a GitHub or
+        // Microsoft employee).
+        if (!response.user.isEmployee &&
+            !response.user.email.includes('@microsoft.com') &&
+            (await isOrgMember(member.handle)))
+            await octokit.rest.orgs.removeMember({
+                org: Common.OWNER,
+                username: member.handle
+            });
+    }
+    coreExports.info(`Removed Users from the Organization: ${Common.OWNER}`);
+}
 
 /**
  * Parses the issue body and returns a JSON object.
  *
- * @param issue The issue to parse.
- * @param action The action being taken on the request.
- * @returns The class request.
+ * @param issue Issue
+ * @param action Action
+ * @returns Class Request
  */
 function parse(issue, action) {
     coreExports.info(`Parsing Class Request: #${issue.number}`);
@@ -31411,399 +31934,362 @@ function parse(issue, action) {
     coreExports.info(JSON.stringify(request, null, 2));
     return request;
 }
-
-var execExports = requireExec();
-
 /**
- * Generates the repository name for this class and user.
+ * Completes the class request.
  *
- * @param request The class request
- * @param user The user
+ * @param issue Issue
+ * @param request Class Request
  */
-function generateRepoName(request, user) {
-    return `gh-int-${request.customerAbbr.toLowerCase()}-${user.handle}`;
-}
-/**
- * Creates the attendee repositories.
- *
- * @param request The class request
- * @param teamName The team to grant access
- * @returns The list of generated repositories
- */
-async function create$1(request, user, team) {
+async function complete(request, issue) {
+    coreExports.info(`Completing Class Request: #${issue.number}`);
     // Create the authenticated Octokit client.
     const token = coreExports.getInput('github_token', { required: true });
     const octokit = githubExports.getOctokit(token);
-    const response = await octokit.rest.repos.createUsingTemplate({
-        template_owner: Common.OWNER,
-        template_repo: Common.TEMPLATE_REPO,
+    // Add the success comment to the request issue.
+    await octokit.rest.issues.createComment({
+        issue_number: issue.number,
         owner: Common.OWNER,
-        name: generateRepoName(request, user),
-        description: `GitHub Intermediate - ${request.customerName}`,
-        include_all_branches: true,
-        private: true
+        repo: Common.ISSUEOPS_REPO,
+        body: generateMessage(request)
     });
-    // Grant the team access to the repository.
-    await octokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
-        org: Common.OWNER,
-        team_slug: team.slug,
-        owner: Common.OWNER,
-        repo: response.data.name,
-        permission: 'admin'
-    });
-    return response.data.name;
+    coreExports.info(`Completed Class Request: #${issue.number}`);
 }
 /**
- * Configures an attendee repository.
+ * Generates the body for a successfully processed request.
  *
- * @param request The class request
- * @param user The attendee who owns this repo
- * @param repo The repository name
- * @param team The team who will access this repo
+ * @param request Class Request
+ * @returns Comment Body
  */
-async function configure(request, user, repo, team) {
-    coreExports.info(`Configuring Attendee Repository: ${repo}`);
-    const workspace = coreExports.getInput('workspace', { required: true });
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    // Create the deployments environment.
-    await octokit.rest.repos.createOrUpdateEnvironment({
-        owner: Common.OWNER,
-        repo,
-        environment_name: 'deployments'
-    });
-    // Configure GitHub Pages.
-    const response = await octokit.rest.repos.createPagesSite({
-        owner: Common.OWNER,
-        repo,
-        build_type: 'workflow'
-    });
-    // Update the About page of the repo to include the URL.
-    // await octokit.rest.repos.updateInformationAboutPagesSite(P)
-    await octokit.rest.repos.update({
-        owner: Common.OWNER,
-        repo,
-        homepage: response.data.html_url
-    });
-    // Configure the exec options.
-    const options = {
-        cwd: workspace,
-        listeners: {
-            stdout: (data) => {
-                coreExports.info(data.toString());
-            },
-            stderr: (data) => {
-                coreExports.error(data.toString());
-            }
-        }
-    };
-    // Clone the repository to the local workspace.
-    coreExports.info(`Cloning ${repo} to ${workspace}/${repo}`);
-    await execExports.exec('git', [
-        'clone',
-        `https://x-access-token:${token}@github.com/${Common.OWNER}/${repo}.git`
-    ], options);
-    // Update the working directory to the checked out repository.
-    options.cwd = `${workspace}/${repo}`;
-    // Update the remote URL to use the token.
-    await execExports.exec('git', [
-        'remote',
-        'set-url',
-        'origin',
-        `https://x-access-token:${token}@github.com/${Common.OWNER}/${repo}.git`
-    ], options);
-    // Configure the Git user.
-    coreExports.info('Configuring Git');
-    await execExports.exec('git', ['config', 'user.name', `"${Bot.USER}"`], options);
-    await execExports.exec('git', ['config', 'user.email', `"${Bot.EMAIL}"`], options);
-    // Configure the labs
-    await configureLab1();
-    await configureLab2();
-    await configureLab3();
-    await configureLab4();
-    await configureLab5();
-    await configureLab6();
-    await configureLab7();
-    await configureLab8();
-    await configureLab9();
-    await configureLab10();
-    await configureLab11();
-    coreExports.info(`Configured Attendee Repository: ${repo}`);
-}
-/**
- * Configure Lab 1: Add a Feature
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function configureLab1(options, octokit) {
-    coreExports.info('Configuring Lab 1: Add a Feature');
-    // Nothing needs to be done...
-    coreExports.info('Configured Lab 1: Add a Feature');
-}
-/**
- * Configure Lab 2: Add Tags
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab2(options, octokit) {
-    coreExports.info('Configuring Lab 2: Add Tags');
-    // Nothing needs to be done...
-    coreExports.info('Configured Lab 2: Add Tags');
-}
-/**
- * Configure Lab 3: Git Bisect
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab3(options, octokit) {
-    coreExports.info('Configuring Lab 3: Git Bisect');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
-    coreExports.info('Configured Lab 3: Git Bisect');
-}
-/**
- * Configure Lab 4: Interactive Rebase
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab4(options, octokit) {
-    coreExports.info('Configuring Lab 4: Interactive Rebase');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
-    coreExports.info('Configured Lab 4: Interactive Rebase');
-}
-/**
- * Configure Lab 5: Cherry-Pick
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab5(options, octokit) {
-    coreExports.info('Configuring Lab 5: Cherry-Pick');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
-    coreExports.info('Configured Lab 5: Cherry-Pick');
-}
-/**
- * Configure Lab 6: Protect Main
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab6(options, octokit) {
-    coreExports.info('Configuring Lab 6: Protect Main');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
-    coreExports.info('Configured Lab 6: Protect Main');
-}
-/**
- * Configure Lab 7: GitHub Flow
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab7(options, octokit) {
-    coreExports.info('Configuring Lab 7: GitHub Flow');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
-    coreExports.info('Configured Lab 7: GitHub Flow');
-}
-/**
- * Configure Lab 8: Merge Conflicts
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab8(options, octokit) {
-    coreExports.info('Configuring Lab 8: Merge Conflicts');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
-    coreExports.info('Configured Lab 8: Merge Conflicts');
-}
-/**
- * Configure Lab 9: Run a Workflow
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab9(options, octokit) {
-    coreExports.info('Configuring Lab 9: Run a Workflow');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
-    coreExports.info('Configured Lab 9: Run a Workflow');
-}
-/**
- * Configure Lab 10: Create a Release
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab10(options, octokit) {
-    coreExports.info('Configuring Lab 10: Create a Release');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
-    coreExports.info('Configured Lab 10: Create a Release');
-}
-/**
- * Configure Lab 11: Deploy to an Environment
- *
- * @param options Exec options
- * @param octokit Octokit client
- */
-async function configureLab11(options, octokit) {
-    coreExports.info('Configuring Lab 11: Deploy to an Environment');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
-    coreExports.info('Configured Lab 11: Deploy to an Environment');
+function generateMessage(request) {
+    // New class creation
+    if (request.action === AllowedIssueCommentAction.ADD_ADMIN) {
+        const payload = githubExports.context.payload;
+        const user = {
+            handle: payload.comment.body.split(' ')[1].split(',')[0],
+            email: payload.comment.body.split(' ')[1].split(',')[1]
+        };
+        return `The following admin has been added: ${user.handle}`;
+    }
+    else if (request.action === AllowedIssueCommentAction.ADD_USER) {
+        const payload = githubExports.context.payload;
+        const user = {
+            handle: payload.comment.body.split(' ')[1].split(',')[0],
+            email: payload.comment.body.split(' ')[1].split(',')[1]
+        };
+        return `The following member has been added: ${user.handle}`;
+    }
+    else if (request.action === AllowedIssueAction.CLOSE) {
+        return 'It looks like this request was closed. Access has been revoked for all attendees!';
+    }
+    else if (request.action === AllowedIssueAction.CREATE) {
+        return dedent(`:ballot_box_with_check: **Class Request Complete**
+    
+      Your request has been provisioned! The following repositories have been created for each attendee:
+
+      | Attendee | Repository |
+      |----------|------------|
+      ${request.attendees
+            .map((attendee) => `| ${attendee.handle} | [\`${Common.OWNER}/${attendee.handle}\`](https://github.com/${Common.OWNER}/${attendee.handle}) |`)
+            .join('\n')}
+
+      The \`${Common.OWNER}/${request.team}\` team has been granted access to each repository.
+
+      ### :warning: **IMPORTANT** :warning:
+
+      - The listed repositories will be automatically **deleted** on **${request.endDate.toISOString()}**.
+      - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.`);
+    }
+    else if (request.action === AllowedIssueCommentAction.REMOVE_ADMIN) {
+        const payload = githubExports.context.payload;
+        const user = {
+            handle: payload.comment.body.split(' ')[1].split(',')[0],
+            email: payload.comment.body.split(' ')[1].split(',')[1]
+        };
+        return `The following admin has been removed: ${user.handle}`;
+    }
+    else if (request.action === AllowedIssueCommentAction.REMOVE_USER) {
+        const payload = githubExports.context.payload;
+        const user = {
+            handle: payload.comment.body.split(' ')[1].split(',')[0],
+            email: payload.comment.body.split(' ')[1].split(',')[1]
+        };
+        return `The following member has been removed: ${user.handle}`;
+    }
+    throw new Error(`Invalid Action: ${request.action}`);
 }
 
 /**
- * Generates the team name for this class.
+ * Creates a class from a request.
  *
- * @param request The class request
+ * @param request Class Request
+ * @param payload Issue Payload
  */
-function generateTeamName(request) {
-    return `gh-int-${request.customerAbbr.toLowerCase()}`;
-}
-/**
- * Creates the team for this class.
- *
- * @param request The class request
- * @returns The team slug
- */
-async function create(request) {
-    coreExports.info('Creating Class Team');
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    // Create the team. Add the class administrators as maintainers.
-    const response = await octokit.rest.teams.create({
-        org: Common.OWNER,
-        name: generateTeamName(request),
-        maintainers: request.administrators.map((user) => {
-            return user.handle;
-        })
-    });
-    // Add the users to the team.
+async function create(request, payload) {
+    coreExports.info(`Creating Class Request: #${payload.issue.number}`);
+    // Check if the team already exists.
+    if (await exists$1(request))
+        throw new Error(`Team Already Exists: ${generateTeamName(request)}`);
+    // Check if any user repositories already exist.
     for (const user of request.attendees)
-        await addUser(request, user, 'member');
-    coreExports.info(`Created Class Team: ${generateTeamName(request)}`);
-    return { slug: response.data.slug, id: response.data.id };
+        if (await exists(request, user))
+            throw new Error(`Repository Already Exists: ${generateRepoName(request, user)}`);
+    // Create the team and add the users.
+    const team = await create$2(request);
+    // Create and configure the user repositories.
+    for (const user of request.attendees) {
+        const repo = await create$1(request, user, team);
+        await configure(request, user, repo);
+    }
+    // Comment on the issue with the summary.
+    await complete(request, payload.issue);
+    coreExports.info(`Created Class Request: #${payload.issue.number}`);
 }
 /**
- * Adds a member to the team.
+ * Closes a class.
  *
- * @param request The class request
- * @param user The user to add
+ * @param request Class Request
+ * @param payload Issue Payload
  */
-async function addUser(request, user, role = 'member') {
-    coreExports.info(`Adding User to Class Team: ${user.handle}`);
+async function close(request, payload) {
+    coreExports.info(`Closing Class Request: #${payload.issue.number}`);
     // Create the authenticated Octokit client.
     const token = coreExports.getInput('github_token', { required: true });
     const octokit = githubExports.getOctokit(token);
-    // Add the user to the team.
-    await octokit.rest.teams.addOrUpdateMembershipForUserInOrg({
-        org: Common.OWNER,
-        team_slug: generateTeamName(request),
-        username: user.handle,
-        role
-    });
-    coreExports.info(`Added User to Class Team: ${user.handle}`);
-}
-
-/**
- * The main function for the action.
- */
-async function run() {
-    // Get needed GitHub context information.
-    const eventName = githubExports.context.eventName;
-    const payload = githubExports.context.payload;
-    // Get the action inputs.
-    let action = coreExports.getInput('action', { required: true });
-    // Fail if the action is being run on an unsupported event type.
-    if (eventName !== 'issue_comment' && eventName !== 'issues')
-        return coreExports.setFailed('This action can only be run on `issues` and `issue_comment` events.');
-    if (eventName === 'issues' &&
-        (payload.action === 'edited' || payload.action === 'opened')) {
-        // Issue open/edit only supports `create` actions.
-        action = AllowedIssueAction.CREATE;
-    }
-    else if (eventName === 'issues' && payload.action === 'closed') {
-        // Issue close event only supports `close` actions.
-        action = AllowedIssueAction.CLOSE;
-    }
-    // Parse the issue to get the request.
-    try {
-        const request = parse(payload.issue, action);
-        if (action === AllowedIssueAction.CREATE) {
-            coreExports.info('Processing Class Create');
-            // TODO: Check if team, repos, and/or users already exist and fail if they do.
-            // Create the team and add the users.
-            const team = await create(request);
-            // Create and configure the repositories.
-            coreExports.info('Creating Attendee Repositories');
-            const repoNames = [];
-            for (const user of request.attendees) {
-                const repo = await create$1(request, user, team);
-                repoNames.push(repo);
-                await configure(request, user, repo, team);
-                coreExports.info(`  - ${repo}`);
-            }
-            coreExports.info('Created Attendee Repositories');
-        }
-        // TODO: Comment on the request issue with the summary
-    }
-    catch (error) {
-        const token = coreExports.getInput('github_token', { required: true });
-        const octokit = githubExports.getOctokit(token);
+    // Delete user repositories.
+    await deleteRepositories(request);
+    // Remove users from the organization.
+    await removeUsers(request);
+    // Delete the team.
+    await deleteTeam(request);
+    // Check if the issue is open.
+    if (payload.issue.state === 'open') {
         // Add the closed comment to the request issue.
         await octokit.rest.issues.createComment({
             issue_number: payload.issue.number,
             owner: Common.OWNER,
             repo: Common.ISSUEOPS_REPO,
-            body: dedent(`There was an error processing your request: ${error.message}`)
+            body: generateMessage(request)
+        });
+        // Close the issue.
+        await octokit.rest.issues.update({
+            owner: Common.OWNER,
+            repo: Common.ISSUEOPS_REPO,
+            issue_number: payload.issue.number,
+            state: 'closed',
+            state_reason: 'completed'
+        });
+    }
+    // Comment on the issue with the summary.
+    await complete(request, payload.issue);
+    coreExports.info(`Closed Class Request: #${payload.issue.number}`);
+}
+/**
+ * Adds an administrator to a class.
+ *
+ * @param request Class Request
+ * @param payload Issue Comment Payload
+ */
+async function addAdmin(request, payload) {
+    coreExports.info(`Adding Admin to Class Request: #${payload.issue.number}`);
+    // Get the user from the comment body.
+    // Format: .add-admin handle,email
+    if (!payload.comment.body.split(' ')[1] ||
+        !payload.comment.body.split(' ')[1].includes(',') ||
+        payload.comment.body.split(' ')[1].split(',').length !== 2)
+        throw new Error('Invalid Format! Try `.add-admin handle,email`');
+    const user = {
+        handle: payload.comment.body.split(' ')[1].split(',')[0],
+        email: payload.comment.body.split(' ')[1].split(',')[1]
+    };
+    await addUser$1(request, user, 'maintainer');
+    // Comment on the issue with the summary.
+    await complete(request, payload.issue);
+    coreExports.info(`Added Admin to Class Request: #${payload.issue.number}`);
+}
+/**
+ * Adds an user to a class.
+ *
+ * @param request Class Request
+ * @param payload Issue Comment Payload
+ */
+async function addUser(request, payload) {
+    coreExports.info(`Adding User to Class Request: #${payload.issue.number}`);
+    // Get the user from the comment body.
+    // Format: .add-user handle,email
+    if (!payload.comment.body.split(' ')[1] ||
+        !payload.comment.body.split(' ')[1].includes(',') ||
+        payload.comment.body.split(' ')[1].split(',').length !== 2)
+        throw new Error('Invalid Format! Try `.add-user handle,email`');
+    const user = {
+        handle: payload.comment.body.split(' ')[1].split(',')[0],
+        email: payload.comment.body.split(' ')[1].split(',')[1]
+    };
+    const team = await get(request);
+    // Add the user to the team.
+    await addUser$1(request, user);
+    // Create and configure their repository.
+    const repo = await create$1(request, user, team);
+    await configure(request, user, repo);
+    // Comment on the issue with the summary.
+    await complete(request, payload.issue);
+    coreExports.info(`Added User to Class Request: #${payload.issue.number}`);
+}
+/**
+ * Removes an administrator from the class.
+ *
+ * @param request Class Request
+ * @param payload Issue Comment
+ */
+async function removeAdmin(request, payload) {
+    coreExports.info(`Removing Admin from Class Request: #${payload.issue.number}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Get the user from the comment body.
+    // Format: .remove-admin handle,email
+    if (!payload.comment.body.split(' ')[1] ||
+        !payload.comment.body.split(' ')[1].includes(',') ||
+        payload.comment.body.split(' ')[1].split(',').length !== 2)
+        throw new Error('Invalid Format! Try `.remove-admin handle,email`');
+    const user = {
+        handle: payload.comment.body.split(' ')[1].split(',')[0],
+        email: payload.comment.body.split(' ')[1].split(',')[1]
+    };
+    // Check if the user is a GitHub/Microsoft employee.
+    const response = await octokit.graphql(`
+    query($login: String!) {
+      user(login: $login) {
+        isEmployee
+        email
+      }
+    }
+    `, { login: user.handle });
+    // Remove the user from the organization (if they're not a GitHub or Microsoft
+    // employee). This will also remove them from the team.
+    if (!response.user.isEmployee &&
+        !response.user.email.includes('@microsoft.com') &&
+        (await isOrgMember(user.handle)))
+        await octokit.rest.orgs.removeMember({
+            org: Common.OWNER,
+            username: user.handle
+        });
+    await complete(request, payload.issue);
+    coreExports.info(`Removed Admin from Class Request: #${payload.issue.number}`);
+}
+/**
+ * Removes a user from the class.
+ *
+ * @param request Class Request
+ * @param payload Issue Comment Payload
+ */
+async function removeUser(request, payload) {
+    coreExports.info(`Removing User from Class Request: #${payload.issue.number}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Get the user from the comment body.
+    // Format: .remove-admin handle,email
+    if (!payload.comment.body.split(' ')[1] ||
+        !payload.comment.body.split(' ')[1].includes(',') ||
+        payload.comment.body.split(' ')[1].split(',').length !== 2)
+        throw new Error('Invalid Format! Try `.remove-admin handle,email`');
+    const user = {
+        handle: payload.comment.body.split(' ')[1].split(',')[0],
+        email: payload.comment.body.split(' ')[1].split(',')[1]
+    };
+    // Check if the user is a GitHub/Microsoft employee.
+    const response = await octokit.graphql(`
+    query($login: String!) {
+      user(login: $login) {
+        isEmployee
+        email
+      }
+    }
+    `, { login: user.handle });
+    // Remove the user from the organization (if they're not a GitHub or
+    // Microsoft employee). This will also remove them from the team.
+    if (!response.user.isEmployee &&
+        !response.user.email.includes('@microsoft.com') &&
+        (await isOrgMember(user.handle)))
+        await octokit.rest.orgs.removeMember({
+            org: Common.OWNER,
+            username: user.handle
+        });
+    // Delete the user repository.
+    if (await exists(request, user))
+        await octokit.rest.repos.delete({
+            owner: Common.OWNER,
+            repo: generateRepoName(request, user)
+        });
+    await complete(request, payload.issue);
+    coreExports.info(`Removed User from Class Request: #${payload.issue.number}`);
+}
+
+/**
+ * Checks the event name and payload to determine the action to take.
+ *
+ * @param name Event Name
+ * @param payload Event Payload
+ * @returns Action to Take
+ */
+function getAction(name, payload) {
+    if (name === 'issues') {
+        // Issue open/edit only supports the `create` action.
+        if (payload.action === 'opened' || payload.action === 'edited')
+            return AllowedIssueAction.CREATE;
+        // Issue close only supports the `close` action.
+        if (payload.action === 'closed')
+            return AllowedIssueAction.CLOSE;
+        // Otherwise, return undefined.
+        return undefined;
+    }
+    if (name === 'issue_comment' && payload.action === 'created') {
+        if (payload.comment.body.startsWith('.add-admin'))
+            return AllowedIssueCommentAction.ADD_ADMIN;
+        if (payload.comment.body.startsWith('.add-user'))
+            return AllowedIssueCommentAction.ADD_USER;
+        if (payload.comment.body.startsWith('.remove-admin'))
+            return AllowedIssueCommentAction.REMOVE_ADMIN;
+        if (payload.comment.body.startsWith('.remove-user'))
+            return AllowedIssueCommentAction.REMOVE_USER;
+    }
+    return undefined;
+}
+
+async function run() {
+    // Get needed GitHub context information.
+    const eventName = githubExports.context.eventName;
+    const payload = githubExports.context.payload;
+    // Decide what action to take based on issue state and comment text.
+    const action = getAction(eventName, payload);
+    if (!action)
+        return coreExports.info(`Ignoring Action: ${eventName} / ${payload.action}`);
+    try {
+        coreExports.info(`Processing Action: ${action}`);
+        // Parse the issue to get the request.
+        const request = parse(payload.issue, action);
+        if (action === AllowedIssueAction.CREATE)
+            await create(request, payload);
+        else if (action === AllowedIssueAction.CLOSE)
+            await close(request, payload);
+        else if (action === AllowedIssueCommentAction.ADD_ADMIN)
+            await addAdmin(request, payload);
+        else if (action === AllowedIssueCommentAction.ADD_USER)
+            await addUser(request, payload);
+        else if (action === AllowedIssueCommentAction.REMOVE_ADMIN)
+            await removeAdmin(request, payload);
+        else if (action === AllowedIssueCommentAction.REMOVE_USER)
+            await removeUser(request, payload);
+    }
+    catch (error) {
+        const token = coreExports.getInput('github_token', { required: true });
+        const octokit = githubExports.getOctokit(token);
+        // Add the error comment to the request issue.
+        await octokit.rest.issues.createComment({
+            issue_number: payload.issue.number,
+            owner: Common.OWNER,
+            repo: Common.ISSUEOPS_REPO,
+            body: dedent(`There was an error processing your request: \`${error.message}\``)
         });
         coreExports.setFailed(error.message);
     }

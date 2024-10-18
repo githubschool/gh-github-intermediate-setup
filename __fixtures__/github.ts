@@ -9,6 +9,9 @@ export const context = {
     issue: {
       body: '### Customer Name\n\nNick Testing Industries\n\n### Customer Abbreviation\n\nNA1\n\n### Start Date\n\n2024-10-17\n\n### End Date\n\n2024-10-20\n\n### Administrators\n\nncalteen,ncalteen@github.com\n\n### Attendees\nncalteen-testuser,ncalteen+github@gmail.com',
       number: 1
+    },
+    comment: {
+      body: ''
     }
   }
 }

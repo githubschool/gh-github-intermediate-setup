@@ -2,7 +2,7 @@ import { jest } from '@jest/globals'
 import * as core from '../__fixtures__/core.js'
 import * as github from '../__fixtures__/github.js'
 import * as octokit from '../__fixtures__/octokit.js'
-import { AllowedIssueAction } from '../src/enums.js'
+import { AllowedIssueAction, AllowedIssueCommentAction } from '../src/enums.js'
 
 jest.unstable_mockModule('@actions/core', () => core)
 jest.unstable_mockModule('@actions/github', () => github)
@@ -18,122 +18,118 @@ jest.unstable_mockModule('@octokit/rest', async () => {
   }
 })
 
+const events_getAction: jest.SpiedFunction<
+  typeof import('../src/events.js').getAction
+> = jest.fn()
 const issues_parse: jest.SpiedFunction<
   typeof import('../src/github/issues.js').parse
 > = jest.fn()
-const issues_complete: jest.SpiedFunction<
-  typeof import('../src/github/issues.js').complete
+const actions_create: jest.SpiedFunction<
+  typeof import('../src/actions.js').create
 > = jest.fn()
-const issues_close: jest.SpiedFunction<
-  typeof import('../src/github/issues.js').close
+const actions_close: jest.SpiedFunction<
+  typeof import('../src/actions.js').close
 > = jest.fn()
-const issues_generateMessage: jest.SpiedFunction<
-  typeof import('../src/github/issues.js').generateMessage
+const actions_addAdmin: jest.SpiedFunction<
+  typeof import('../src/actions.js').addAdmin
 > = jest.fn()
-const repos_generateRepoName: jest.SpiedFunction<
-  typeof import('../src/github/repos.js').generateRepoName
+const actions_addUser: jest.SpiedFunction<
+  typeof import('../src/actions.js').addUser
 > = jest.fn()
-const repos_create: jest.SpiedFunction<
-  typeof import('../src/github/repos.js').create
+const actions_removeAdmin: jest.SpiedFunction<
+  typeof import('../src/actions.js').removeAdmin
 > = jest.fn()
-const repos_configure: jest.SpiedFunction<
-  typeof import('../src/github/repos.js').configure
-> = jest.fn()
-const teams_create: jest.SpiedFunction<
-  typeof import('../src/github/teams.js').create
+const actions_removeUser: jest.SpiedFunction<
+  typeof import('../src/actions.js').removeUser
 > = jest.fn()
 
+jest.unstable_mockModule('../src/events.js', () => {
+  return {
+    getAction: events_getAction
+  }
+})
 jest.unstable_mockModule('../src/github/issues.js', () => {
   return {
-    parse: issues_parse,
-    complete: issues_complete,
-    close: issues_close,
-    generateMessage: issues_generateMessage
+    parse: issues_parse
   }
 })
-jest.unstable_mockModule('../src/github/repos.js', () => {
+jest.unstable_mockModule('../src/actions.js', () => {
   return {
-    generateRepoName: repos_generateRepoName,
-    create: repos_create,
-    configure: repos_configure
-  }
-})
-jest.unstable_mockModule('../src/github/teams.js', () => {
-  return {
-    create: teams_create
+    create: actions_create,
+    close: actions_close,
+    addAdmin: actions_addAdmin,
+    addUser: actions_addUser,
+    removeAdmin: actions_removeAdmin,
+    removeUser: actions_removeUser
   }
 })
 
 const main = await import('../src/main.js')
-
-const { Octokit } = await import('@octokit/rest')
-const mocktokit = jest.mocked(new Octokit())
 
 describe('main', () => {
   afterEach(() => {
     jest.resetAllMocks()
   })
 
-  beforeEach(() => {
-    // Reset testing inputs.
-    github.context.eventName = 'issues'
+  it('Skips Invalid Actions', async () => {
+    events_getAction.mockReturnValue(undefined)
+
+    await main.run()
+
+    expect(actions_create).not.toHaveBeenCalled()
+    expect(actions_close).not.toHaveBeenCalled()
+    expect(actions_addAdmin).not.toHaveBeenCalled()
+    expect(actions_addUser).not.toHaveBeenCalled()
+    expect(actions_removeAdmin).not.toHaveBeenCalled()
+    expect(actions_removeUser).not.toHaveBeenCalled()
+    expect(core.setFailed).not.toHaveBeenCalled()
   })
 
-  describe('Validation', () => {
-    it('Fails on an Invalid GitHub Event', async () => {
-      github.context.eventName = 'push'
+  it('Processes a Class Create Event', async () => {
+    events_getAction.mockReturnValue(AllowedIssueAction.CREATE)
 
-      await main.run()
+    await main.run()
 
-      expect(core.setFailed).toHaveBeenCalledTimes(1)
-      expect(core.setFailed).toHaveBeenCalledWith(
-        'This action can only be run on `issues` and `issue_comment` events.'
-      )
-    })
+    expect(actions_create).toHaveBeenCalledTimes(1)
   })
 
-  describe('Class Create', () => {
-    beforeEach(() => {
-      issues_parse.mockReturnValue({
-        action: AllowedIssueAction.CREATE,
-        customerName: 'Nick Testing Industries',
-        customerAbbr: 'NA1',
-        startDate: new Date(2024, 10, 17),
-        endDate: new Date(2024, 10, 20),
-        administrators: [
-          {
-            handle: 'ncalteen',
-            email: 'ncalteen@github.com'
-          }
-        ],
-        attendees: [
-          {
-            handle: 'ncalteen-testuser',
-            email: 'ncalteen+testuser@github.com'
-          }
-        ]
-      })
-    })
+  it('Processes a Class Close Event', async () => {
+    events_getAction.mockReturnValue(AllowedIssueAction.CLOSE)
 
-    it('Processes a Class Create Event', async () => {
-      await main.run()
+    await main.run()
 
-      expect(core.setFailed).not.toHaveBeenCalled()
+    expect(actions_close).toHaveBeenCalledTimes(1)
+  })
 
-      expect(teams_create).toHaveBeenCalledTimes(1)
-      expect(repos_create).toHaveBeenCalledTimes(1)
-      expect(repos_configure).toHaveBeenCalledTimes(1)
-    })
+  it('Processes an Add Admin Event', async () => {
+    events_getAction.mockReturnValue(AllowedIssueCommentAction.ADD_ADMIN)
 
-    it('Comments if an Error Occurs', async () => {
-      const error = new Error('Test Error')
-      repos_create.mockRejectedValue(error)
+    await main.run()
 
-      await main.run()
+    expect(actions_addAdmin).toHaveBeenCalledTimes(1)
+  })
 
-      expect(mocktokit.rest.issues.createComment).toHaveBeenCalledTimes(1)
-      expect(core.setFailed).toHaveBeenCalledTimes(1)
-      expect(core.setFailed).toHaveBeenCalledWith(error.message)
-    })
+  it('Processes an Add User Event', async () => {
+    events_getAction.mockReturnValue(AllowedIssueCommentAction.ADD_USER)
+
+    await main.run()
+
+    expect(actions_addUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('Processes a Remove Admin Event', async () => {
+    events_getAction.mockReturnValue(AllowedIssueCommentAction.REMOVE_ADMIN)
+
+    await main.run()
+
+    expect(actions_removeAdmin).toHaveBeenCalledTimes(1)
+  })
+
+  it('Processes a Remove User Event', async () => {
+    events_getAction.mockReturnValue(AllowedIssueCommentAction.REMOVE_USER)
+
+    await main.run()
+
+    expect(actions_removeUser).toHaveBeenCalledTimes(1)
   })
 })

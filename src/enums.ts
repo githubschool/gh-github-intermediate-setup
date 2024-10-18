@@ -12,8 +12,6 @@ export enum AllowedIssueCommentAction {
   ADD_ADMIN = 'add-admin',
   /** Add a User */
   ADD_USER = 'add-user',
-  /** Extend a Class */
-  EXTEND = 'extend',
   /** Remove an Administrator */
   REMOVE_ADMIN = 'remove-admin',
   /** Remove a User */
@@ -22,7 +20,7 @@ export enum AllowedIssueCommentAction {
 
 /** Fast Track Bot (GitHub App) */
 export enum Bot {
-  /** Email Address */ // TODO: Need correct ID...
+  /** Email Address */
   EMAIL = '153844374+gh-intermediate-issueops[bot]@users.noreply.github.com',
   /** User Name */
   USER = 'gh-intermediate-issueops[bot]'
@@ -36,12 +34,4 @@ export enum Common {
   OWNER = 'githubschool',
   /** Template Repositoriy */
   TEMPLATE_REPO = 'gh-github-intermediate-template'
-}
-
-/** Environment Names */
-export enum Environments {
-  /** Dev */
-  DEV = 'dev',
-  /** Prod */
-  PROD = 'prod'
 }

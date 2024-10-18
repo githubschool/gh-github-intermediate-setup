@@ -8,13 +8,16 @@ import {
   Common
 } from '../enums.js'
 import type { ClassRequest, User } from '../types.js'
+import * as repos from './repos.js'
+import * as teams from './teams.js'
+import * as users from './users.js'
 
 /**
  * Parses the issue body and returns a JSON object.
  *
- * @param issue The issue to parse.
- * @param action The action being taken on the request.
- * @returns The class request.
+ * @param issue Issue
+ * @param action Action
+ * @returns Class Request
  */
 export function parse(
   issue: IssueCommentEvent['issue'] | IssuesEvent['issue'],
@@ -148,15 +151,12 @@ export function parse(
 /**
  * Completes the class request.
  *
- * Adds a comment to the request issue with the provisioned repositories and
- * teams.
- *
- * @param issue The request issue.
- * @param request The class request.
+ * @param issue Issue
+ * @param request Class Request
  */
 export async function complete(
-  issue: IssueCommentEvent['issue'],
-  request: ClassRequest
+  request: ClassRequest,
+  issue: IssueCommentEvent['issue'] | IssuesEvent['issue']
 ): Promise<void> {
   core.info(`Completing Class Request: #${issue.number}`)
 
@@ -178,21 +178,57 @@ export async function complete(
 /**
  * Closes a request.
  *
- * Deletes the repositories and teams, revokes access, closes the issue, and
- * adds a comment.
- *
- * @param issue The issue payload.
- * @param request The class request.
+ * @param issue Issue
+ * @param request Class Request
  */
 export async function close(
   issue: IssueCommentEvent['issue'],
   request: ClassRequest
 ): Promise<void> {
-  core.info(`Cancelling Class Request: #${issue.number}`)
+  core.info(`Closing Class Request: #${issue.number}`)
 
   // Create the authenticated Octokit client.
   const token: string = core.getInput('github_token', { required: true })
   const octokit = github.getOctokit(token)
+
+  // If the team exists, delete it.
+  if (await teams.exists(request))
+    await octokit.rest.teams.deleteInOrg({
+      org: Common.OWNER,
+      team_slug: teams.generateTeamName(request)
+    })
+
+  for (const user of request.attendees) {
+    // If the repositories exist, delete them.
+    if (await repos.exists(request, user))
+      await octokit.rest.repos.delete({
+        owner: Common.OWNER,
+        repo: repos.generateRepoName(request, user)
+      })
+
+    // Remove the user from the organization (if they're not a GitHub or
+    // Microsoft employee).
+    const response = (await octokit.graphql(
+      `
+      query($login: String!) {
+        user(login: $login) {
+          isEmployee
+          email
+        }
+      }
+      `,
+      { login: user.handle }
+    )) as any
+    if (
+      !response.user.isEmployee &&
+      !response.user.email.includes('@microsoft.com') &&
+      (await users.isOrgMember(user.handle))
+    )
+      await octokit.rest.orgs.removeMember({
+        org: Common.OWNER,
+        username: user.handle
+      })
+  }
 
   // Check if the issue is open.
   if (issue.state !== 'open') return core.info(`Issue Closed: #${issue.number}`)
@@ -220,21 +256,29 @@ export async function close(
 /**
  * Generates the body for a successfully processed request.
  *
- * The specific text depends on the type of action being taken in the request.
- *
- * @param request The class request.
- * @returns The body of the success comment.
+ * @param request Class Request
+ * @returns Comment Body
  */
 export function generateMessage(request: ClassRequest): string {
   // New class creation
   if (request.action === AllowedIssueCommentAction.ADD_ADMIN) {
-    // TODO: Add message
-    return ''
+    const payload = github.context.payload as IssueCommentEvent
+    const user = {
+      handle: payload.comment.body.split(' ')[1].split(',')[0],
+      email: payload.comment.body.split(' ')[1].split(',')[1]
+    }
+
+    return `The following admin has been added: ${user.handle}`
   } else if (request.action === AllowedIssueCommentAction.ADD_USER) {
-    // TODO: Add message
-    return ''
+    const payload = github.context.payload as IssueCommentEvent
+    const user = {
+      handle: payload.comment.body.split(' ')[1].split(',')[0],
+      email: payload.comment.body.split(' ')[1].split(',')[1]
+    }
+
+    return `The following member has been added: ${user.handle}`
   } else if (request.action === AllowedIssueAction.CLOSE) {
-    return 'It looks like this request was closed. Access has been revoked!'
+    return 'It looks like this request was closed. Access has been revoked for all attendees!'
   } else if (request.action === AllowedIssueAction.CREATE) {
     return dedent(`:ballot_box_with_check: **Class Request Complete**
     
@@ -253,17 +297,24 @@ export function generateMessage(request: ClassRequest): string {
 
       ### :warning: **IMPORTANT** :warning:
 
-      - The listed repositories will be automatically **deleted** on **${request.endDate.toISOString()}**. You can extend this in one-week increments by commenting on this issue with \`.extend\`.
+      - The listed repositories will be automatically **deleted** on **${request.endDate.toISOString()}**.
       - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.`)
-  } else if (request.action === AllowedIssueCommentAction.EXTEND) {
-    // TODO: Add message
-    return ''
   } else if (request.action === AllowedIssueCommentAction.REMOVE_ADMIN) {
-    // TODO: Add message
-    return ''
+    const payload = github.context.payload as IssueCommentEvent
+    const user = {
+      handle: payload.comment.body.split(' ')[1].split(',')[0],
+      email: payload.comment.body.split(' ')[1].split(',')[1]
+    }
+
+    return `The following admin has been removed: ${user.handle}`
   } else if (request.action === AllowedIssueCommentAction.REMOVE_USER) {
-    // TODO: Add message
-    return ''
+    const payload = github.context.payload as IssueCommentEvent
+    const user = {
+      handle: payload.comment.body.split(' ')[1].split(',')[0],
+      email: payload.comment.body.split(' ')[1].split(',')[1]
+    }
+
+    return `The following member has been removed: ${user.handle}`
   }
 
   throw new Error(`Invalid Action: ${request.action}`)

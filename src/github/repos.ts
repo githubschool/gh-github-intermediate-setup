@@ -2,32 +2,35 @@ import * as core from '@actions/core'
 import type { ExecOptions } from '@actions/exec'
 import * as exec from '@actions/exec'
 import * as github from '@actions/github'
-import { GitHub } from '@actions/github/lib/utils.js'
+import type { GitHub } from '@actions/github/lib/utils.js'
 import { Bot, Common } from '../enums.js'
-import { ClassRequest, Team, User } from '../types.js'
+import type { ClassRequest, Team, User } from '../types.js'
+import * as teams from './teams.js'
 
 /**
  * Generates the repository name for this class and user.
  *
- * @param request The class request
- * @param user The user
+ * @param request Class Request
+ * @param user User
  */
 export function generateRepoName(request: ClassRequest, user: User): string {
   return `gh-int-${request.customerAbbr.toLowerCase()}-${user.handle}`
 }
 
 /**
- * Creates the attendee repositories.
+ * Creates a repository for an attendee.
  *
- * @param request The class request
- * @param teamName The team to grant access
- * @returns The list of generated repositories
+ * @param request Class Request
+ * @param team Team
+ * @returns Repository Name
  */
 export async function create(
   request: ClassRequest,
   user: User,
   team: Team
 ): Promise<string> {
+  core.info(`Creating Attendee Repository: ${generateRepoName(request, user)}`)
+
   // Create the authenticated Octokit client.
   const token: string = core.getInput('github_token', { required: true })
   const octokit = github.getOctokit(token)
@@ -51,16 +54,46 @@ export async function create(
     permission: 'admin'
   })
 
+  core.info(`Created Attendee Repository: ${generateRepoName(request, user)}`)
   return response.data.name
+}
+
+/**
+ * Checks if the repository exists.
+ *
+ * @param request Class Request
+ * @param user User
+ * @returns True if the Repository Exists
+ */
+export async function exists(
+  request: ClassRequest,
+  user: User
+): Promise<boolean> {
+  // Create the authenticated Octokit client.
+  const token: string = core.getInput('github_token', { required: true })
+  const octokit = github.getOctokit(token)
+
+  try {
+    await octokit.rest.repos.get({
+      owner: Common.OWNER,
+      repo: generateRepoName(request, user)
+    })
+  } catch (error: any) {
+    core.info(`Error: ${error.status}`)
+    if (error.status === 404) return false
+  }
+
+  core.info(`Repo Exists: ${generateRepoName(request, user)}`)
+  return true
 }
 
 /**
  * Configures an attendee repository.
  *
- * @param request The class request
- * @param user The attendee who owns this repo
- * @param repo The repository name
- * @param team The team who will access this repo
+ * @param request Class Request
+ * @param user User
+ * @param repo Repository Name
+ * @param team Team
  */
 export async function configure(
   request: ClassRequest,
@@ -91,7 +124,6 @@ export async function configure(
   })
 
   // Update the About page of the repo to include the URL.
-  // await octokit.rest.repos.updateInformationAboutPagesSite(P)
   await octokit.rest.repos.update({
     owner: Common.OWNER,
     repo,
@@ -159,16 +191,44 @@ export async function configure(
 }
 
 /**
+ * Deletes all class repositories.
+ *
+ * @param request Class Request
+ */
+export async function deleteRepositories(request: ClassRequest): Promise<void> {
+  core.info(`Deleting Repositories: #${request.customerAbbr}`)
+
+  // Create the authenticated Octokit client.
+  const token: string = core.getInput('github_token', { required: true })
+  const octokit = github.getOctokit(token)
+
+  // Get the team members.
+  const members = await teams.getMembers(request)
+
+  // Delete the repositories for each member.
+  for (const member of members) {
+    core.info(`Deleting Repository: ${generateRepoName(request, member)}`)
+
+    if (await exists(request, member))
+      await octokit.rest.repos.delete({
+        owner: Common.OWNER,
+        repo: generateRepoName(request, member)
+      })
+  }
+
+  core.info(`Deleted Repositories: ${request.customerAbbr}`)
+}
+
+/**
  * Configure Lab 1: Add a Feature
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function configureLab1(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 1: Add a Feature')
 
   // Nothing needs to be done...
@@ -179,13 +239,13 @@ export async function configureLab1(
 /**
  * Configure Lab 2: Add Tags
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab2(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 2: Add Tags')
 
   // Nothing needs to be done...
@@ -196,13 +256,13 @@ export async function configureLab2(
 /**
  * Configure Lab 3: Git Bisect
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab3(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 3: Git Bisect')
 
   // // Commit the updates.
@@ -219,13 +279,13 @@ export async function configureLab3(
 /**
  * Configure Lab 4: Interactive Rebase
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab4(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 4: Interactive Rebase')
 
   // // Commit the updates.
@@ -242,13 +302,13 @@ export async function configureLab4(
 /**
  * Configure Lab 5: Cherry-Pick
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab5(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 5: Cherry-Pick')
 
   // // Commit the updates.
@@ -265,13 +325,13 @@ export async function configureLab5(
 /**
  * Configure Lab 6: Protect Main
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab6(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 6: Protect Main')
 
   // // Commit the updates.
@@ -288,13 +348,13 @@ export async function configureLab6(
 /**
  * Configure Lab 7: GitHub Flow
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab7(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 7: GitHub Flow')
 
   // // Commit the updates.
@@ -311,13 +371,13 @@ export async function configureLab7(
 /**
  * Configure Lab 8: Merge Conflicts
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab8(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 8: Merge Conflicts')
 
   // // Commit the updates.
@@ -334,13 +394,13 @@ export async function configureLab8(
 /**
  * Configure Lab 9: Run a Workflow
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab9(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 9: Run a Workflow')
 
   // // Commit the updates.
@@ -357,13 +417,13 @@ export async function configureLab9(
 /**
  * Configure Lab 10: Create a Release
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab10(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 10: Create a Release')
 
   // // Commit the updates.
@@ -380,13 +440,13 @@ export async function configureLab10(
 /**
  * Configure Lab 11: Deploy to an Environment
  *
- * @param options Exec options
- * @param octokit Octokit client
+ * @param options Exec Options
+ * @param octokit Octokit Client
  */
 export async function configureLab11(
   options: ExecOptions,
   octokit: InstanceType<typeof GitHub>
-) {
+): Promise<void> {
   core.info('Configuring Lab 11: Deploy to an Environment')
 
   // // Commit the updates.

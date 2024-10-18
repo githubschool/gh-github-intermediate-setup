@@ -1,87 +1,58 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import type { IssueCommentEvent } from '@octokit/webhooks-types'
+import type { IssueCommentEvent, IssuesEvent } from '@octokit/webhooks-types'
 import { dedent } from 'ts-dedent'
+import * as actions from './actions.js'
 import {
   AllowedIssueAction,
   AllowedIssueCommentAction,
   Common
 } from './enums.js'
+import * as events from './events.js'
 import * as issues from './github/issues.js'
-import * as repos from './github/repos.js'
-import * as teams from './github/teams.js'
-import type { ClassRequest } from './types.js'
 
-/**
- * The main function for the action.
- */
 export async function run(): Promise<void> {
   // Get needed GitHub context information.
   const eventName = github.context.eventName
-  const payload = github.context.payload
+  const payload = github.context.payload as IssueCommentEvent | IssuesEvent
 
-  // Get the action inputs.
-  let action: string = core.getInput('action', { required: true })
+  // Decide what action to take based on issue state and comment text.
+  const action = events.getAction(eventName, payload)
+  if (!action)
+    return core.info(`Ignoring Action: ${eventName} / ${payload.action}`)
 
-  // Fail if the action is being run on an unsupported event type.
-  if (eventName !== 'issue_comment' && eventName !== 'issues')
-    return core.setFailed(
-      'This action can only be run on `issues` and `issue_comment` events.'
-    )
-
-  if (
-    eventName === 'issues' &&
-    (payload.action === 'edited' || payload.action === 'opened')
-  ) {
-    // Issue open/edit only supports `create` actions.
-    action = AllowedIssueAction.CREATE
-  } else if (eventName === 'issues' && payload.action === 'closed') {
-    // Issue close event only supports `close` actions.
-    action = AllowedIssueAction.CLOSE
-  }
-
-  // Parse the issue to get the request.
   try {
-    const request: ClassRequest = issues.parse(
-      (payload as IssueCommentEvent).issue,
-      action as AllowedIssueAction | AllowedIssueCommentAction
-    )
+    core.info(`Processing Action: ${action}`)
 
-    if (action === AllowedIssueAction.CREATE) {
-      core.info('Processing Class Create')
+    // Parse the issue to get the request.
+    const request = issues.parse(payload.issue, action)
 
-      // TODO: Check if team, repos, and/or users already exist and fail if they do.
-
-      // Create the team and add the users.
-      const team = await teams.create(request)
-
-      // Create and configure the repositories.
-      core.info('Creating Attendee Repositories')
-      const repoNames: string[] = []
-      for (const user of request.attendees) {
-        const repo = await repos.create(request, user, team)
-        repoNames.push(repo)
-
-        await repos.configure(request, user, repo, team)
-        core.info(`  - ${repo}`)
-      }
-      core.info('Created Attendee Repositories')
-    }
-
-    // TODO: Comment on the request issue with the summary
+    if (action === AllowedIssueAction.CREATE)
+      await actions.create(request, payload as IssuesEvent)
+    else if (action === AllowedIssueAction.CLOSE)
+      await actions.close(request, payload as IssuesEvent)
+    else if (action === AllowedIssueCommentAction.ADD_ADMIN)
+      await actions.addAdmin(request, payload as IssueCommentEvent)
+    else if (action === AllowedIssueCommentAction.ADD_USER)
+      await actions.addUser(request, payload as IssueCommentEvent)
+    else if (action === AllowedIssueCommentAction.REMOVE_ADMIN)
+      await actions.removeAdmin(request, payload as IssueCommentEvent)
+    else if (action === AllowedIssueCommentAction.REMOVE_USER)
+      await actions.removeUser(request, payload as IssueCommentEvent)
   } catch (error: any) {
     const token: string = core.getInput('github_token', { required: true })
     const octokit = github.getOctokit(token)
 
-    // Add the closed comment to the request issue.
+    // Add the error comment to the request issue.
     await octokit.rest.issues.createComment({
       issue_number: (payload as IssueCommentEvent).issue.number,
       owner: Common.OWNER,
       repo: Common.ISSUEOPS_REPO,
       body: dedent(
-        `There was an error processing your request: ${error.message}`
+        `There was an error processing your request: \`${error.message}\``
       )
     })
+
     core.setFailed(error.message)
   }
 }

@@ -3,14 +3,6 @@ description: Automates management of GitHub Intermediate deliveries
 author: Nick Alteen <ncalteen@github.com>
 
 inputs:
-  action:
-    description:
-      The action to perform. You can either `create` a new class, `add-user` to
-      add a user to an existing class, `add-admin` to add an admin to an
-      existing class, `remove-user` to remove a user from an existing class,
-      `remove-admin` to remove an admin from an existing class, `close` an
-      existing class, or `extend` an existing class.
-    required: true
   github_token:
     description: The GitHub token used to authenticate with the GitHub API
     required: true

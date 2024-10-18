@@ -30,6 +30,10 @@ describe('teams', () => {
     jest.resetAllMocks()
   })
 
+  beforeEach(() => {
+    core.getInput.mockReturnValue('github-token')
+  })
+
   describe('generateTeamName()', () => {
     it('Generates a Team Name', () => {
       expect(
@@ -56,6 +60,96 @@ describe('teams', () => {
     })
   })
 
+  describe('exists()', () => {
+    it('Returns True if a Team Exists', async () => {
+      expect(
+        await teams.exists({
+          action: AllowedIssueAction.CREATE,
+          customerName: 'Nick Testing Industries',
+          customerAbbr: 'NA1',
+          startDate: new Date(2024, 10, 17),
+          endDate: new Date(2024, 10, 20),
+          administrators: [
+            {
+              handle: 'ncalteen',
+              email: 'ncalteen@github.com'
+            }
+          ],
+          attendees: [
+            {
+              handle: 'ncalteen-testuser',
+              email: 'ncalteen+testing@github.com'
+            }
+          ]
+        })
+      ).toBe(true)
+    })
+
+    it('Returns False if a Team Does Not Exist', async () => {
+      mocktokit.rest.teams.getByName.mockRejectedValue({
+        status: 404
+      } as any)
+
+      expect(
+        await teams.exists({
+          action: AllowedIssueAction.CREATE,
+          customerName: 'Nick Testing Industries',
+          customerAbbr: 'NA1',
+          startDate: new Date(2024, 10, 17),
+          endDate: new Date(2024, 10, 20),
+          administrators: [
+            {
+              handle: 'ncalteen',
+              email: 'ncalteen@github.com'
+            }
+          ],
+          attendees: [
+            {
+              handle: 'ncalteen-testuser',
+              email: 'ncalteen+testing@github.com'
+            }
+          ]
+        })
+      ).toBe(false)
+    })
+  })
+
+  describe('get()', () => {
+    it('Gets a Team', async () => {
+      mocktokit.rest.teams.getByName.mockResolvedValue({
+        data: {
+          slug: 'gh-int-na1',
+          id: 1
+        }
+      } as any)
+
+      expect(
+        await teams.get({
+          action: AllowedIssueAction.CREATE,
+          customerName: 'Nick Testing Industries',
+          customerAbbr: 'NA1',
+          startDate: new Date(2024, 10, 17),
+          endDate: new Date(2024, 10, 20),
+          administrators: [
+            {
+              handle: 'ncalteen',
+              email: 'ncalteen@github.com'
+            }
+          ],
+          attendees: [
+            {
+              handle: 'ncalteen-testuser',
+              email: 'ncalteen+testing@github.com'
+            }
+          ]
+        })
+      ).toMatchObject({
+        slug: 'gh-int-na1',
+        id: 1
+      })
+    })
+  })
+
   describe('create()', () => {
     beforeEach(() => {
       mocktokit.rest.teams.create.mockResolvedValue({
@@ -67,24 +161,29 @@ describe('teams', () => {
     })
 
     it('Creates a Team', async () => {
-      await teams.create({
-        action: AllowedIssueAction.CREATE,
-        customerName: 'Nick Testing Industries',
-        customerAbbr: 'NA1',
-        startDate: new Date(2024, 10, 17),
-        endDate: new Date(2024, 10, 20),
-        administrators: [
-          {
-            handle: 'ncalteen',
-            email: 'ncalteen@github.com'
-          }
-        ],
-        attendees: [
-          {
-            handle: 'ncalteen-testuser',
-            email: 'ncalteen+testing@github.com'
-          }
-        ]
+      expect(
+        await teams.create({
+          action: AllowedIssueAction.CREATE,
+          customerName: 'Nick Testing Industries',
+          customerAbbr: 'NA1',
+          startDate: new Date(2024, 10, 17),
+          endDate: new Date(2024, 10, 20),
+          administrators: [
+            {
+              handle: 'ncalteen',
+              email: 'ncalteen@github.com'
+            }
+          ],
+          attendees: [
+            {
+              handle: 'ncalteen-testuser',
+              email: 'ncalteen+testing@github.com'
+            }
+          ]
+        })
+      ).toMatchObject({
+        slug: 'gh-int-na1',
+        id: 1
       })
 
       expect(mocktokit.rest.teams.create).toHaveBeenCalled()
@@ -125,10 +224,45 @@ describe('teams', () => {
     })
   })
 
-  describe('removeUser()', () => {
-    it('Removes a User', async () => {
-      await teams.removeUser(
-        {
+  describe('deleteTeam()', () => {
+    it('Deletes a Team', async () => {
+      await teams.deleteTeam({
+        action: AllowedIssueAction.CREATE,
+        customerName: 'Nick Testing Industries',
+        customerAbbr: 'NA1',
+        startDate: new Date(2024, 10, 17),
+        endDate: new Date(2024, 10, 20),
+        administrators: [
+          {
+            handle: 'ncalteen',
+            email: 'ncalteen@github.com'
+          }
+        ],
+        attendees: [
+          {
+            handle: 'ncalteen-testuser',
+            email: 'ncalteen+testing@github.com'
+          }
+        ]
+      })
+
+      expect(mocktokit.rest.teams.deleteInOrg).toHaveBeenCalled()
+    })
+  })
+
+  describe('getMembers()', () => {
+    it('Gets Members', async () => {
+      mocktokit.rest.teams.listMembersInOrg.mockResolvedValue({
+        data: [
+          {
+            login: 'ncalteen',
+            email: 'ncalteen@github.com'
+          }
+        ]
+      } as any)
+
+      expect(
+        await teams.getMembers({
           action: AllowedIssueAction.CREATE,
           customerName: 'Nick Testing Industries',
           customerAbbr: 'NA1',
@@ -146,16 +280,15 @@ describe('teams', () => {
               email: 'ncalteen+testing@github.com'
             }
           ]
-        },
+        })
+      ).toMatchObject([
         {
-          handle: 'ncalteen-testuser',
-          email: 'ncalteen+testing@github.com'
+          handle: 'ncalteen',
+          email: 'ncalteen@github.com'
         }
-      )
+      ])
 
-      expect(
-        mocktokit.rest.teams.removeMembershipForUserInOrg
-      ).toHaveBeenCalled()
+      expect(mocktokit.rest.teams.listMembersInOrg).toHaveBeenCalled()
     })
   })
 })

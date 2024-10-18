@@ -31,6 +31,5 @@ jobs:
         id: process
         uses: githubschool/gh-github-intermediate-issueops@main
         with:
-          action: create
           github_token: ${{ steps.token.outputs.token }}
           workspace: ${{ github.workspace }}

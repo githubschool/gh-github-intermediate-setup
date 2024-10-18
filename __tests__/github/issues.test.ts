@@ -21,6 +21,34 @@ jest.unstable_mockModule('@octokit/rest', async () => {
   }
 })
 
+const repos_exists: jest.SpiedFunction<
+  typeof import('../../src/github/repos.js').exists
+> = jest.fn()
+const repos_generateRepoName: jest.SpiedFunction<
+  typeof import('../../src/github/repos.js').generateRepoName
+> = jest.fn()
+const teams_exists: jest.SpiedFunction<
+  typeof import('../../src/github/teams.js').exists
+> = jest.fn()
+const teams_generateTeamName: jest.SpiedFunction<
+  typeof import('../../src/github/teams.js').generateTeamName
+> = jest.fn()
+const users_isOrgMember: jest.SpiedFunction<
+  typeof import('../../src/github/users.js').isOrgMember
+> = jest.fn()
+
+jest.unstable_mockModule('../../src/github/repos.js', () => ({
+  exists: repos_exists,
+  generateRepoName: repos_generateRepoName
+}))
+jest.unstable_mockModule('../../src/github/teams.js', () => ({
+  exists: teams_exists,
+  generateTeamName: teams_generateTeamName
+}))
+jest.unstable_mockModule('../../src/github/users.js', () => ({
+  isOrgMember: users_isOrgMember
+}))
+
 const issues = await import('../../src/github/issues.js')
 
 const { Octokit } = await import('@octokit/rest')
@@ -202,16 +230,10 @@ describe('issues', () => {
   describe('complete()', () => {
     beforeEach(() => {
       core.getInput.mockReturnValue('github-token')
-      mocktokit.rest.issues.createComment.mockResolvedValue({} as any)
     })
 
     it('Completes an Issue', async () => {
       await issues.complete(
-        {
-          number: 3,
-          state: 'open',
-          title: 'New Form'
-        } as any,
         {
           action: AllowedIssueAction.CREATE,
           customerName: 'Nick Testing Industries',
@@ -230,7 +252,12 @@ describe('issues', () => {
               email: 'ncalteen+testing@github.com'
             }
           ]
-        }
+        },
+        {
+          number: 3,
+          state: 'open',
+          title: 'New Form'
+        } as any
       )
 
       expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
@@ -245,8 +272,15 @@ describe('issues', () => {
   describe('close()', () => {
     beforeEach(() => {
       core.getInput.mockReturnValue('github-token')
-      mocktokit.rest.issues.createComment.mockResolvedValue({} as any)
-      mocktokit.rest.issues.update.mockResolvedValue({} as any)
+      teams_exists.mockResolvedValue(true)
+      repos_exists.mockResolvedValue(true)
+      users_isOrgMember.mockResolvedValue(true)
+      mocktokit.graphql.mockResolvedValue({
+        user: {
+          isEmployee: false,
+          email: 'noreply@example.com'
+        }
+      })
     })
 
     it('Closes an Issue', async () => {
@@ -327,6 +361,9 @@ describe('issues', () => {
 
   describe('generateMessage()', () => {
     it('Generates an Add Admin Message', () => {
+      github.context.payload.comment.body =
+        '.add-admin ncalteen,ncalteen@github.com'
+
       expect(
         typeof issues.generateMessage({
           action: AllowedIssueCommentAction.ADD_ADMIN,
@@ -351,6 +388,9 @@ describe('issues', () => {
     })
 
     it('Generates an Add User Message', () => {
+      github.context.payload.comment.body =
+        '.add-user ncalteen,ncalteen@github.com'
+
       expect(
         typeof issues.generateMessage({
           action: AllowedIssueCommentAction.ADD_USER,
@@ -422,31 +462,10 @@ describe('issues', () => {
       ).toBe('string')
     })
 
-    it('Generates an Extend Message', () => {
-      expect(
-        typeof issues.generateMessage({
-          action: AllowedIssueCommentAction.EXTEND,
-          customerName: 'Nick Testing Industries',
-          customerAbbr: 'NA1',
-          startDate: new Date(2024, 10, 17),
-          endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
-          attendees: [
-            {
-              handle: 'ncalteen-testuser',
-              email: 'ncalteen+testing@github.com'
-            }
-          ]
-        })
-      ).toBe('string')
-    })
-
     it('Generates a Remove Admin Message', () => {
+      github.context.payload.comment.body =
+        '.remove-admin ncalteen,ncalteen@github.com'
+
       expect(
         typeof issues.generateMessage({
           action: AllowedIssueCommentAction.REMOVE_ADMIN,
@@ -471,6 +490,9 @@ describe('issues', () => {
     })
 
     it('Generates a Remove User Message', () => {
+      github.context.payload.comment.body =
+        '.remove-user ncalteen,ncalteen@github.com'
+
       expect(
         typeof issues.generateMessage({
           action: AllowedIssueCommentAction.REMOVE_USER,

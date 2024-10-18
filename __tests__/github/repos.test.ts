@@ -20,6 +20,14 @@ jest.unstable_mockModule('@octokit/rest', async () => {
   }
 })
 
+const teams_getMembers: jest.SpiedFunction<
+  typeof import('../../src/github/teams.js').getMembers
+> = jest.fn()
+
+jest.unstable_mockModule('../../src/github/teams.js', () => ({
+  getMembers: teams_getMembers
+}))
+
 const repos = await import('../../src/github/repos.js')
 
 const { Octokit } = await import('@octokit/rest')
@@ -30,7 +38,7 @@ describe('repos', () => {
     jest.resetAllMocks()
   })
 
-  describe('generateRepoName', () => {
+  describe('generateRepoName()', () => {
     it('Generates a Repo Name', () => {
       expect(
         repos.generateRepoName(
@@ -62,7 +70,7 @@ describe('repos', () => {
     })
   })
 
-  describe('create', () => {
+  describe('create()', () => {
     beforeEach(() => {
       core.getInput.mockReturnValue('github-token')
       mocktokit.rest.repos.createUsingTemplate.mockResolvedValue({
@@ -110,11 +118,82 @@ describe('repos', () => {
     })
   })
 
-  describe('configure', () => {
+  describe('exists()', () => {
+    beforeEach(() => {
+      core.getInput.mockReturnValue('github-token')
+    })
+
+    it('Returns True if a Repo Exists', async () => {
+      expect(
+        await repos.exists(
+          {
+            action: AllowedIssueAction.CREATE,
+            customerName: 'Nick Testing Industries',
+            customerAbbr: 'NA1',
+            startDate: new Date(2024, 10, 17),
+            endDate: new Date(2024, 10, 20),
+            administrators: [
+              {
+                handle: 'ncalteen',
+                email: 'ncalteen@github.com'
+              }
+            ],
+            attendees: [
+              {
+                handle: 'ncalteen-testuser',
+                email: 'ncalteen+testing@github.com'
+              }
+            ]
+          },
+          {
+            handle: 'ncalteen-testuser',
+            email: 'ncalteen+testing@github.com'
+          }
+        )
+      ).toBe(true)
+    })
+
+    it('Returns False if a Repo Does Not Exist', async () => {
+      mocktokit.rest.repos.get.mockRejectedValue({
+        status: 404
+      })
+
+      expect(
+        await repos.exists(
+          {
+            action: AllowedIssueAction.CREATE,
+            customerName: 'Nick Testing Industries',
+            customerAbbr: 'NA1',
+            startDate: new Date(2024, 10, 17),
+            endDate: new Date(2024, 10, 20),
+            administrators: [
+              {
+                handle: 'ncalteen',
+                email: 'ncalteen@github.com'
+              }
+            ],
+            attendees: [
+              {
+                handle: 'ncalteen-testuser',
+                email: 'ncalteen+testing@github.com'
+              }
+            ]
+          },
+          {
+            handle: 'ncalteen-testuser',
+            email: 'ncalteen+testing@github.com'
+          }
+        )
+      ).toBe(false)
+    })
+  })
+
+  describe('configure()', () => {
     beforeEach(() => {
       core.getInput
         .mockReturnValueOnce('workspace')
         .mockReturnValueOnce('github-token')
+
       mocktokit.rest.repos.createPagesSite.mockResolvedValue({
         data: {
           html_url: 'pages-url'

@@ -1,22 +1,71 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { Common } from '../enums.js'
-import { ClassRequest, Team, User } from '../types.js'
+import type { ClassRequest, Team, User } from '../types.js'
 
 /**
  * Generates the team name for this class.
  *
- * @param request The class request
+ * @param request Class Request
  */
 export function generateTeamName(request: ClassRequest): string {
   return `gh-int-${request.customerAbbr.toLowerCase()}`
 }
 
 /**
+ * Checks if the team exists.
+ *
+ * @param request Class Request
+ * @returns True if Team Exists
+ */
+export async function exists(request: ClassRequest): Promise<boolean> {
+  core.info('Checking if Class Team Exists')
+
+  // Create the authenticated Octokit client.
+  const token: string = core.getInput('github_token', { required: true })
+  const octokit = github.getOctokit(token)
+
+  try {
+    await octokit.rest.teams.getByName({
+      org: Common.OWNER,
+      team_slug: generateTeamName(request)
+    })
+  } catch (error: any) {
+    core.info(`Error: ${error.status}`)
+    if (error.status === 404) return false
+  }
+
+  core.info(`Class Team Exists: ${generateTeamName(request)}`)
+  return true
+}
+
+/**
+ * Gets the team.
+ *
+ * @param request Class Request
+ * @returns Team Information
+ */
+export async function get(request: ClassRequest): Promise<Team> {
+  // Create the authenticated Octokit client.
+  const token: string = core.getInput('github_token', { required: true })
+  const octokit = github.getOctokit(token)
+
+  const response = await octokit.rest.teams.getByName({
+    org: Common.OWNER,
+    team_slug: generateTeamName(request)
+  })
+
+  return {
+    slug: response.data.slug,
+    id: response.data.id
+  }
+}
+
+/**
  * Creates the team for this class.
  *
- * @param request The class request
- * @returns The team slug
+ * @param request Class Request
+ * @returns Team Information
  */
 export async function create(request: ClassRequest): Promise<Team> {
   core.info('Creating Class Team')
@@ -44,8 +93,8 @@ export async function create(request: ClassRequest): Promise<Team> {
 /**
  * Adds a member to the team.
  *
- * @param request The class request
- * @param user The user to add
+ * @param request Class Request
+ * @param user User to Add
  */
 export async function addUser(
   request: ClassRequest,
@@ -70,29 +119,49 @@ export async function addUser(
 }
 
 /**
- * Removes a member from the team.
+ * Deletes the team.
  *
- * @param request The class request
- * @param user The user to add
+ * @param request Class Request
  */
-export async function removeUser(
-  request: ClassRequest,
-  user: User
-): Promise<void> {
-  core.info(`Removing User from Class Team: ${user.handle}`)
+export async function deleteTeam(request: ClassRequest): Promise<void> {
+  core.info(`Deleting Team: ${generateTeamName(request)}`)
 
   // Create the authenticated Octokit client.
   const token: string = core.getInput('github_token', { required: true })
   const octokit = github.getOctokit(token)
 
-  // Remove the user to the team.
-  await octokit.rest.teams.removeMembershipForUserInOrg({
+  // If the team exists, delete it.
+  if (await exists(request))
+    await octokit.rest.teams.deleteInOrg({
+      org: Common.OWNER,
+      team_slug: generateTeamName(request)
+    })
+
+  core.info(`Deleted Team: ${generateTeamName(request)}`)
+}
+
+/**
+ * Gets the members of the team.
+ *
+ * @param request Class Request
+ * @returns Team Members
+ */
+export async function getMembers(request: ClassRequest): Promise<User[]> {
+  core.info(`Getting Members of Team: ${generateTeamName(request)}`)
+
+  // Create the authenticated Octokit client.
+  const token: string = core.getInput('github_token', { required: true })
+  const octokit = github.getOctokit(token)
+
+  // Get the members of the team.
+  const response = await octokit.rest.teams.listMembersInOrg({
     org: Common.OWNER,
-    team_slug: generateTeamName(request),
-    username: user.handle
+    team_slug: generateTeamName(request)
   })
 
-  // TODO: Remove User From Organization
+  core.info(`Got Members of Team: ${generateTeamName(request)}`)
 
-  core.info(`Removed User from Class Team: ${user.handle}`)
+  return response.data.map((user) => {
+    return { handle: user.login, email: user.email as string }
+  })
 }
