@@ -7,7 +7,7 @@ import {
   AllowedIssueCommentAction,
   Common
 } from '../enums.js'
-import { ClassRequest, User } from '../types.js'
+import type { ClassRequest, User } from '../types.js'
 
 /**
  * Parses the issue body and returns a JSON object.
@@ -35,11 +35,10 @@ export function parse(
     attendees: /### Attendees[\r\n]+(?<attendees>[\s\S]*?)(?=###|$)/
   }
 
-  //### *(?<key>.*?)\s*[\r\n]+(?<value>[\s\S]*?)(?=###|$)
-
   // Get the PR body and check that it isn't empty
   const body = issue.body
-  if (body === null) throw new Error('Issue Body is Empty')
+  if (body === null || body === undefined)
+    throw new Error('Issue Body is Empty')
 
   core.info('Class Request Properties')
   const results: { [k: string]: string } = {
@@ -88,7 +87,9 @@ export function parse(
     : new Date(Date.parse(results.endDate))
 
   // Parse the administrators, default to empty array.
-  const administrators: User[] = results.administrators.includes(noResponse)
+  const administrators: User[] = results.administrators.includes(
+    noResponse.toLowerCase()
+  )
     ? []
     : results.administrators.split(/\n/).map((value: string) => {
         if (value.split(/,\s?/).length !== 2)
@@ -103,7 +104,7 @@ export function parse(
       })
 
   // Parse the attendees, default to empty array.
-  const attendees: User[] = results.attendees.includes(noResponse)
+  const attendees: User[] = results.attendees.includes(noResponse.toLowerCase())
     ? []
     : results.attendees.split(/\n/).map((value: string) => {
         if (value.split(/,\s?/).length !== 2)
@@ -252,7 +253,7 @@ export function generateMessage(request: ClassRequest): string {
 
       ### :warning: **IMPORTANT** :warning:
 
-      - The listed repositories will be automatically **deleted** on **${request.endDate.toDateString()}**. You can extend this in one-week increments by commenting on this issue with \`.extend\`.
+      - The listed repositories will be automatically **deleted** on **${request.endDate.toISOString()}**. You can extend this in one-week increments by commenting on this issue with \`.extend\`.
       - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.`)
   } else if (request.action === AllowedIssueCommentAction.EXTEND) {
     // TODO: Add message
