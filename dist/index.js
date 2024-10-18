@@ -31326,10 +31326,9 @@ function parse(issue, action) {
         administrators: /### Administrators[\r\n]+(?<administrators>[\s\S]*?)(?=###|$)/,
         attendees: /### Attendees[\r\n]+(?<attendees>[\s\S]*?)(?=###|$)/
     };
-    //### *(?<key>.*?)\s*[\r\n]+(?<value>[\s\S]*?)(?=###|$)
     // Get the PR body and check that it isn't empty
     const body = issue.body;
-    if (body === null)
+    if (body === null || body === undefined)
         throw new Error('Issue Body is Empty');
     coreExports.info('Class Request Properties');
     const results = {
@@ -31365,7 +31364,7 @@ function parse(issue, action) {
         ? undefined
         : new Date(Date.parse(results.endDate));
     // Parse the administrators, default to empty array.
-    const administrators = results.administrators.includes(noResponse)
+    const administrators = results.administrators.includes(noResponse.toLowerCase())
         ? []
         : results.administrators.split(/\n/).map((value) => {
             if (value.split(/,\s?/).length !== 2)
@@ -31376,7 +31375,7 @@ function parse(issue, action) {
             };
         });
     // Parse the attendees, default to empty array.
-    const attendees = results.attendees.includes(noResponse)
+    const attendees = results.attendees.includes(noResponse.toLowerCase())
         ? []
         : results.attendees.split(/\n/).map((value) => {
             if (value.split(/,\s?/).length !== 2)
@@ -31767,20 +31766,14 @@ async function run() {
     if (eventName !== 'issue_comment' && eventName !== 'issues')
         return coreExports.setFailed('This action can only be run on `issues` and `issue_comment` events.');
     if (eventName === 'issues' &&
-        (payload.action === 'edited' || payload.action === 'opened'))
+        (payload.action === 'edited' || payload.action === 'opened')) {
         // Issue open/edit only supports `create` actions.
         action = AllowedIssueAction.CREATE;
-    else if (eventName === 'issues' && payload.action === 'closed')
+    }
+    else if (eventName === 'issues' && payload.action === 'closed') {
         // Issue close event only supports `close` actions.
         action = AllowedIssueAction.CLOSE;
-    else if (eventName === 'issue_comment' &&
-        (payload.action === 'created' || payload.action === 'edited') &&
-        !Object.values(AllowedIssueCommentAction).includes(action))
-        // Issue comment create/edit events support the remaining actions.
-        return coreExports.setFailed(`Invalid \`issue_comment\` Action: ${action}`);
-    // Invalid action
-    else
-        return coreExports.setFailed(`Invalid Action: ${action}`);
+    }
     // Parse the issue to get the request.
     try {
         const request = parse(payload.issue, action);
@@ -31800,6 +31793,7 @@ async function run() {
             }
             coreExports.info('Created Attendee Repositories');
         }
+        // TODO: Comment on the request issue with the summary
     }
     catch (error) {
         const token = coreExports.getInput('github_token', { required: true });

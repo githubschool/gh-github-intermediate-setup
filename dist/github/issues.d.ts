@@ -1,6 +1,6 @@
 import type { IssueCommentEvent, IssuesEvent } from '@octokit/webhooks-types';
 import { AllowedIssueAction, AllowedIssueCommentAction } from '../enums.js';
-import { ClassRequest } from '../types.js';
+import type { ClassRequest } from '../types.js';
 /**
  * Parses the issue body and returns a JSON object.
  *

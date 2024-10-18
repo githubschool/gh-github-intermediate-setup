@@ -85,12 +85,14 @@ export async function removeUser(
   const token: string = core.getInput('github_token', { required: true })
   const octokit = github.getOctokit(token)
 
-  // Add the user to the team.
+  // Remove the user to the team.
   await octokit.rest.teams.removeMembershipForUserInOrg({
     org: Common.OWNER,
     team_slug: generateTeamName(request),
     username: user.handle
   })
+
+  // TODO: Remove User From Organization
 
   core.info(`Removed User from Class Team: ${user.handle}`)
 }

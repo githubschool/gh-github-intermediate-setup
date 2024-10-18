@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { IssueCommentEvent } from '@octokit/webhooks-types'
+import type { IssueCommentEvent } from '@octokit/webhooks-types'
 import { dedent } from 'ts-dedent'
 import {
   AllowedIssueAction,
@@ -32,23 +32,13 @@ export async function run(): Promise<void> {
   if (
     eventName === 'issues' &&
     (payload.action === 'edited' || payload.action === 'opened')
-  )
+  ) {
     // Issue open/edit only supports `create` actions.
     action = AllowedIssueAction.CREATE
-  else if (eventName === 'issues' && payload.action === 'closed')
+  } else if (eventName === 'issues' && payload.action === 'closed') {
     // Issue close event only supports `close` actions.
     action = AllowedIssueAction.CLOSE
-  else if (
-    eventName === 'issue_comment' &&
-    (payload.action === 'created' || payload.action === 'edited') &&
-    !Object.values(AllowedIssueCommentAction).includes(
-      action as AllowedIssueCommentAction
-    )
-  )
-    // Issue comment create/edit events support the remaining actions.
-    return core.setFailed(`Invalid \`issue_comment\` Action: ${action}`)
-  // Invalid action
-  else return core.setFailed(`Invalid Action: ${action}`)
+  }
 
   // Parse the issue to get the request.
   try {
@@ -77,6 +67,8 @@ export async function run(): Promise<void> {
       }
       core.info('Created Attendee Repositories')
     }
+
+    // TODO: Comment on the request issue with the summary
   } catch (error: any) {
     const token: string = core.getInput('github_token', { required: true })
     const octokit = github.getOctokit(token)
