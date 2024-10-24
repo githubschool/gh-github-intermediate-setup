@@ -16,7 +16,9 @@ jobs:
     name: Process Issue Open/Edit
     runs-on: ubuntu-latest
 
-    if: contains(github.event.issue.labels.*.name, 'gh-intermediate-class')
+    if: |
+      contains(github.event.issue.labels.*.name, 'gh-intermediate-class') &&
+      contains(github.event.issue.labels.*.name, 'provisioned') == false
 
     steps:
       - name: Checkout
