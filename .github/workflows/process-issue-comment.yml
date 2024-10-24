@@ -22,7 +22,9 @@ jobs:
         startsWith(github.event.comment.body, '.add-user') ||
         startsWith(github.event.comment.body, '.remove-admin') ||
         startsWith(github.event.comment.body, '.remove-user')
-      )
+      ) &&
+      contains(github.event.issue.labels.*.name, 'gh-intermediate-class') &&
+      contains(github.event.issue.labels.*.name, 'provisioned')
 
     steps:
       - name: Get GitHub App Token
