@@ -289,7 +289,7 @@ export function generateMessage(request: ClassRequest): string {
       ${request.attendees
         .map(
           (attendee) =>
-            `| ${attendee.handle} | [\`${Common.OWNER}/${attendee.handle}\`](https://github.com/${Common.OWNER}/${attendee.handle}) |`
+            `| ${attendee.handle} | [\`${Common.OWNER}/${repos.generateRepoName(request, attendee)}\`](https://github.com/${Common.OWNER}/${attendee.handle}) |`
         )
         .join('\n')}
 

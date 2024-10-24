@@ -31989,7 +31989,7 @@ function generateMessage(request) {
       | Attendee | Repository |
       |----------|------------|
       ${request.attendees
-            .map((attendee) => `| ${attendee.handle} | [\`${Common.OWNER}/${attendee.handle}\`](https://github.com/${Common.OWNER}/${attendee.handle}) |`)
+            .map((attendee) => `| ${attendee.handle} | [\`${Common.OWNER}/${generateRepoName(request, attendee)}\`](https://github.com/${Common.OWNER}/${attendee.handle}) |`)
             .join('\n')}
 
       The \`${Common.OWNER}/${request.team}\` team has been granted access to each repository.
