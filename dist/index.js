@@ -32415,8 +32415,11 @@ async function run() {
     if (!action)
         return coreExports.info(`Ignoring Action: ${eventName} / ${payload.action}`);
     // The expire action always takes precedence.
-    if (action === AllowedIssueAction.EXPIRE)
+    if (action === AllowedIssueAction.EXPIRE) {
+        coreExports.info(`Processing Action: ${action}`);
         await expire();
+        return;
+    }
     try {
         coreExports.info(`Processing Action: ${action}`);
         // Parse the issue to get the request.

@@ -22,7 +22,12 @@ export async function run(): Promise<void> {
     return core.info(`Ignoring Action: ${eventName} / ${payload.action}`)
 
   // The expire action always takes precedence.
-  if (action === AllowedIssueAction.EXPIRE) await actions.expire()
+  if (action === AllowedIssueAction.EXPIRE) {
+    core.info(`Processing Action: ${action}`)
+    await actions.expire()
+
+    return
+  }
 
   try {
     core.info(`Processing Action: ${action}`)
