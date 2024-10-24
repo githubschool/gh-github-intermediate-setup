@@ -17,6 +17,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Get GitHub App Token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.ISSUEOPS_APP_ID }}
+          private-key: ${{ secrets.ISSUEOPS_APP_PEM_FILE }}
+          owner: ${{ github.repository_owner }}
+
       - name: Process IssueOps Request
         id: process
         uses: githubschool/gh-github-intermediate-issueops@main
