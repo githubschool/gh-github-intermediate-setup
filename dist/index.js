@@ -31681,6 +31681,8 @@ async function configureLab3(options, octokit) {
         const filename = `keyboard_input_manager.test.${i}`;
         const contents = require$$1.readFileSync(`${process.env.GITHUB_WORKSPACE}/lab-files/3-git-bisect/${filename}`, 'utf8');
         // Remove the old file if it exists.
+        await execExports.exec('ls', ['-la'], options);
+        await execExports.exec('ls', ['-la', '__tests__'], options);
         await execExports.exec('rm', ['__tests__/keyboard_input_manager.test.ts'], options);
         // Write the new file.
         require$$1.writeFileSync(`${options.cwd}/__tests__/keyboard_input_manager.test.ts`, contents, 'utf8');

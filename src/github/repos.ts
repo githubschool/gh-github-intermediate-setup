@@ -282,6 +282,8 @@ export async function configureLab3(
     )
 
     // Remove the old file if it exists.
+    await exec.exec('ls', ['-la'], options)
+    await exec.exec('ls', ['-la', '__tests__'], options)
     await exec.exec('rm', ['__tests__/keyboard_input_manager.test.ts'], options)
 
     // Write the new file.
