@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals'
 import * as core from '../../__fixtures__/core.js'
 import * as exec from '../../__fixtures__/exec.js'
+import * as fs from '../../__fixtures__/fs.js'
 import * as github from '../../__fixtures__/github.js'
 import * as octokit from '../../__fixtures__/octokit.js'
 import { AllowedIssueAction } from '../../src/enums.js'
@@ -19,6 +20,7 @@ jest.unstable_mockModule('@octokit/rest', async () => {
     Octokit
   }
 })
+jest.unstable_mockModule('fs', () => fs)
 
 const teams_getMembers: jest.SpiedFunction<
   typeof import('../../src/github/teams.js').getMembers

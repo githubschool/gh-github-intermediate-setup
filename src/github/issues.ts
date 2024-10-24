@@ -329,7 +329,17 @@ export function generateMessage(request: ClassRequest): string {
       ### :warning: **IMPORTANT** :warning:
 
       - The listed repositories will be automatically **deleted** on **${request.endDate.toString()}**.
-      - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.`)
+      - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.
+
+      If you need to add/remove users or admins, use the comment commands below.
+
+      | Command                        | Description                     |
+      |--------------------------------|---------------------------------|
+      | \`.add-user handle,email\`     | Add a user to the class.        |
+      | \`.add-admin handle,email\`    | Add an admin to the class.      |
+      | \`.remove-user handle,email\`  | Remove a user from the class.   |
+      | \`.remove-admin handle,email\` | Remove an admin from the class. |
+      `)
   } else if (request.action === AllowedIssueAction.EXPIRE) {
     return 'It looks like this request has expired. Access has been revoked for all attendees!'
   } else if (request.action === AllowedIssueCommentAction.REMOVE_ADMIN) {

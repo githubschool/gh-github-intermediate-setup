@@ -56,6 +56,10 @@ export declare function configureLab2(options: ExecOptions, octokit: InstanceTyp
 /**
  * Configure Lab 3: Git Bisect
  *
+ * This setup step creates a number of commits in the lab repository. One commit
+ * will contain the specific code that the student will need to bisect to find.
+ * The remainder are just filler commits to make the history more complex.
+ *
  * @param options Exec Options
  * @param octokit Octokit Client
  */

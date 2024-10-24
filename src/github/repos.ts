@@ -3,6 +3,7 @@ import type { ExecOptions } from '@actions/exec'
 import * as exec from '@actions/exec'
 import * as github from '@actions/github'
 import type { GitHub } from '@actions/github/lib/utils.js'
+import fs from 'fs'
 import { Bot, Common } from '../enums.js'
 import type { ClassRequest, Team, User } from '../types.js'
 import * as teams from './teams.js'
@@ -188,6 +189,7 @@ export async function configure(
   await configureLab9(options, octokit)
   await configureLab10(options, octokit)
   await configureLab11(options, octokit)
+  await exec.exec('git', ['push'], options)
 
   core.info(`Configured Attendee Repository: ${repo}`)
 }
@@ -258,6 +260,10 @@ export async function configureLab2(
 /**
  * Configure Lab 3: Git Bisect
  *
+ * This setup step creates a number of commits in the lab repository. One commit
+ * will contain the specific code that the student will need to bisect to find.
+ * The remainder are just filler commits to make the history more complex.
+ *
  * @param options Exec Options
  * @param octokit Octokit Client
  */
@@ -267,13 +273,28 @@ export async function configureLab3(
 ): Promise<void> {
   core.info('Configuring Lab 3: Git Bisect')
 
-  // // Commit the updates.
-  // core.info('Committing Changes')
-  // await exec.exec('git', ['add', '.'], options)
-  // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+  for (let i = 1; i < 10; i++) {
+    // Get the file contents.
+    const filename = `keyboard_input_manager.test.${i}`
+    const contents = fs.readFileSync(
+      `../../lab-files/3-git-bisect/${filename}`,
+      'utf8'
+    )
 
-  // core.info('Pushing changes')
-  // await exec.exec('git', ['push'], options)
+    // Remove the old file if it exists.
+    await exec.exec('rm', ['__tests__/keyboard_input_manager.test.ts'], options)
+
+    // Write the new file.
+    fs.writeFileSync(
+      `${options.cwd}/__tests__/keyboard_input_manager.test.ts`,
+      contents,
+      'utf8'
+    )
+
+    // Commit the changes.
+    await exec.exec('git', ['add', '.'], options)
+    await exec.exec('git', ['commit', '-m', `Adding unit tests ${i}`], options)
+  }
 
   core.info('Configured Lab 3: Git Bisect')
 }

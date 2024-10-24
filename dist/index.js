@@ -31607,7 +31607,7 @@ async function configure(request, user, repo, team) {
     // Configure the labs
     await configureLab1();
     await configureLab2();
-    await configureLab3();
+    await configureLab3(options);
     await configureLab4();
     await configureLab5();
     await configureLab6();
@@ -31616,6 +31616,7 @@ async function configure(request, user, repo, team) {
     await configureLab9();
     await configureLab10();
     await configureLab11();
+    await execExports.exec('git', ['push'], options);
     coreExports.info(`Configured Attendee Repository: ${repo}`);
 }
 /**
@@ -31666,17 +31667,27 @@ async function configureLab2(options, octokit) {
 /**
  * Configure Lab 3: Git Bisect
  *
+ * This setup step creates a number of commits in the lab repository. One commit
+ * will contain the specific code that the student will need to bisect to find.
+ * The remainder are just filler commits to make the history more complex.
+ *
  * @param options Exec Options
  * @param octokit Octokit Client
  */
 async function configureLab3(options, octokit) {
     coreExports.info('Configuring Lab 3: Git Bisect');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
+    for (let i = 1; i < 10; i++) {
+        // Get the file contents.
+        const filename = `keyboard_input_manager.test.${i}`;
+        const contents = require$$1.readFileSync(`../../lab-files/3-git-bisect/${filename}`, 'utf8');
+        // Remove the old file if it exists.
+        await execExports.exec('rm', ['__tests__/keyboard_input_manager.test.ts'], options);
+        // Write the new file.
+        require$$1.writeFileSync(`${options.cwd}/__tests__/keyboard_input_manager.test.ts`, contents, 'utf8');
+        // Commit the changes.
+        await execExports.exec('git', ['add', '.'], options);
+        await execExports.exec('git', ['commit', '-m', `Adding unit tests ${i}`], options);
+    }
     coreExports.info('Configured Lab 3: Git Bisect');
 }
 /**
@@ -32035,7 +32046,17 @@ function generateMessage(request) {
       ### :warning: **IMPORTANT** :warning:
 
       - The listed repositories will be automatically **deleted** on **${request.endDate.toString()}**.
-      - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.`);
+      - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.
+
+      If you need to add/remove users or admins, use the comment commands below.
+
+      | Command                        | Description                     |
+      |--------------------------------|---------------------------------|
+      | \`.add-user handle,email\`     | Add a user to the class.        |
+      | \`.add-admin handle,email\`    | Add an admin to the class.      |
+      | \`.remove-user handle,email\`  | Remove a user from the class.   |
+      | \`.remove-admin handle,email\` | Remove an admin from the class. |
+      `);
     }
     else if (request.action === AllowedIssueAction.EXPIRE) {
         return 'It looks like this request has expired. Access has been revoked for all attendees!';
