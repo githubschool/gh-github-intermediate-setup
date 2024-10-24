@@ -109,6 +109,10 @@ export async function addAdmin(
 ): Promise<void> {
   core.info(`Adding Admin to Class Request: #${payload.issue.number}`)
 
+  // Create the authenticated Octokit client.
+  const token: string = core.getInput('github_token', { required: true })
+  const octokit = github.getOctokit(token)
+
   // Get the user from the comment body.
   // Format: .add-admin handle,email
   if (
@@ -122,6 +126,27 @@ export async function addAdmin(
     handle: payload.comment.body.split(' ')[1].split(',')[0],
     email: payload.comment.body.split(' ')[1].split(',')[1]
   }
+
+  // Check if the user is a GitHub/Microsoft employee.
+  const response: { user: { isEmployee: boolean; email: string } } =
+    await octokit.graphql(
+      `
+      query($login: String!) {
+        user(login: $login) {
+          isEmployee
+          email
+        }
+      }
+      `,
+      { login: user.handle }
+    )
+
+  // Do not add the admin if they are not a GitHub or Microsoft employee.
+  if (
+    !response.user.isEmployee &&
+    !response.user.email.includes('@microsoft.com')
+  )
+    throw new Error('Admins Must be GitHub/Microsoft Employees')
 
   await teams.addUser(request, user, 'maintainer')
 
@@ -206,13 +231,13 @@ export async function removeAdmin(
   const response: { user: { isEmployee: boolean; email: string } } =
     await octokit.graphql(
       `
-    query($login: String!) {
-      user(login: $login) {
-        isEmployee
-        email
+      query($login: String!) {
+        user(login: $login) {
+          isEmployee
+          email
+        }
       }
-    }
-    `,
+      `,
       { login: user.handle }
     )
 

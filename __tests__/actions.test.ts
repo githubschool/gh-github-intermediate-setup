@@ -318,6 +318,13 @@ describe('actions', () => {
     })
 
     it('Adds an Admin', async () => {
+      mocktokit.graphql.mockResolvedValue({
+        user: {
+          isEmployee: true,
+          email: 'noreply@github.com'
+        }
+      })
+
       await actions.addAdmin(
         {
           action: AllowedIssueAction.CREATE,

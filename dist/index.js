@@ -31989,7 +31989,7 @@ function generateMessage(request) {
       | Attendee | Repository |
       |----------|------------|
       ${request.attendees
-            .map((attendee) => `| ${attendee.handle} | [\`${Common.OWNER}/${generateRepoName(request, attendee)}\`](https://github.com/${Common.OWNER}/${attendee.handle}) |`)
+            .map((attendee) => `| ${attendee.handle} | [\`${Common.OWNER}/${generateRepoName(request, attendee)}\`](https://github.com/${Common.OWNER}/${generateRepoName(request, attendee)}) |`)
             .join('\n')}
 
       The \`${Common.OWNER}/${request.team}\` team has been granted access to each repository.
@@ -32091,6 +32091,9 @@ async function close(request, payload) {
  */
 async function addAdmin(request, payload) {
     coreExports.info(`Adding Admin to Class Request: #${payload.issue.number}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
     // Get the user from the comment body.
     // Format: .add-admin handle,email
     if (!payload.comment.body.split(' ')[1] ||
@@ -32101,6 +32104,19 @@ async function addAdmin(request, payload) {
         handle: payload.comment.body.split(' ')[1].split(',')[0],
         email: payload.comment.body.split(' ')[1].split(',')[1]
     };
+    // Check if the user is a GitHub/Microsoft employee.
+    const response = await octokit.graphql(`
+      query($login: String!) {
+        user(login: $login) {
+          isEmployee
+          email
+        }
+      }
+      `, { login: user.handle });
+    // Do not add the admin if they are not a GitHub or Microsoft employee.
+    if (!response.user.isEmployee &&
+        !response.user.email.includes('@microsoft.com'))
+        throw new Error('Admins Must be GitHub/Microsoft Employees');
     await addUser$1(request, user, 'maintainer');
     // Comment on the issue with the summary.
     await complete(request, payload.issue);
@@ -32157,13 +32173,13 @@ async function removeAdmin(request, payload) {
     };
     // Check if the user is a GitHub/Microsoft employee.
     const response = await octokit.graphql(`
-    query($login: String!) {
-      user(login: $login) {
-        isEmployee
-        email
+      query($login: String!) {
+        user(login: $login) {
+          isEmployee
+          email
+        }
       }
-    }
-    `, { login: user.handle });
+      `, { login: user.handle });
     // Remove the user from the organization (if they're not a GitHub or Microsoft
     // employee). This will also remove them from the team.
     if (!response.user.isEmployee &&
