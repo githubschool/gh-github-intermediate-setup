@@ -27,6 +27,9 @@ const issues_complete: jest.SpiedFunction<
 const issues_generateMessage: jest.SpiedFunction<
   typeof import('../src/github/issues.js').generateMessage
 > = jest.fn()
+const issues_parse: jest.SpiedFunction<
+  typeof import('../src/github/issues.js').parse
+> = jest.fn()
 const repos_exists: jest.SpiedFunction<
   typeof import('../src/github/repos.js').exists
 > = jest.fn()
@@ -68,7 +71,8 @@ jest.unstable_mockModule('../src/github/issues.js', () => {
   return {
     addLabels: issues_addLabels,
     complete: issues_complete,
-    generateMessage: issues_generateMessage
+    generateMessage: issues_generateMessage,
+    parse: issues_parse
   }
 })
 jest.unstable_mockModule('../src/github/repos.js', () => {
@@ -238,9 +242,7 @@ describe('actions', () => {
             }
           ]
         },
-        {
-          issue: { state: 'open', number: 1 }
-        } as any
+        { state: 'open', number: 1 } as any
       )
 
       expect(repos_deleteRepositories).toHaveBeenCalled()
@@ -269,9 +271,7 @@ describe('actions', () => {
             }
           ]
         },
-        {
-          issue: { state: 'closed', number: 1 }
-        } as any
+        { state: 'closed', number: 1 } as any
       )
 
       expect(repos_deleteRepositories).toHaveBeenCalled()
@@ -279,6 +279,42 @@ describe('actions', () => {
       expect(teams_deleteTeam).toHaveBeenCalled()
       expect(mocktokit.rest.issues.createComment).not.toHaveBeenCalled()
       expect(mocktokit.rest.issues.update).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('expire()', () => {
+    it('Expires an Open Class', async () => {
+      mocktokit.paginate.mockResolvedValue([
+        {
+          state: 'open',
+          number: 1
+        }
+      ])
+      issues_parse.mockReturnValue({
+        action: AllowedIssueAction.CREATE,
+        customerName: 'Nick Testing Industries',
+        customerAbbr: 'NA1',
+        startDate: new Date(2023, 10, 17),
+        endDate: new Date(2023, 10, 20),
+        administrators: [
+          {
+            handle: 'ncalteen',
+            email: 'ncalteen@github.com'
+          }
+        ],
+        attendees: [
+          {
+            handle: 'ncalteen-testuser',
+            email: 'ncalteen+testing@github.com'
+          }
+        ]
+      })
+
+      await actions.expire()
+
+      expect(repos_deleteRepositories).toHaveBeenCalled()
+      expect(users_removeUsers).toHaveBeenCalled()
+      expect(teams_deleteTeam).toHaveBeenCalled()
     })
   })
 
@@ -359,6 +395,48 @@ describe('actions', () => {
       expect(teams_addUser).toHaveBeenCalled()
       expect(issues_complete).toHaveBeenCalled()
     })
+
+    it('Throws on Invalid Admin', async () => {
+      mocktokit.graphql.mockResolvedValue({
+        user: {
+          isEmployee: false,
+          email: 'fakeuser@notgithub.com'
+        }
+      })
+
+      try {
+        await actions.addAdmin(
+          {
+            action: AllowedIssueAction.CREATE,
+            customerName: 'Nick Testing Industries',
+            customerAbbr: 'NA1',
+            startDate: new Date(2024, 10, 17),
+            endDate: new Date(2024, 10, 20),
+            administrators: [
+              {
+                handle: 'ncalteen',
+                email: 'ncalteen@github.com'
+              }
+            ],
+            attendees: [
+              {
+                handle: 'ncalteen-testuser',
+                email: 'ncalteen+testing@github.com'
+              }
+            ]
+          },
+          {
+            issue: { number: 1 },
+            comment: {
+              body: '.add-admin fakeuser,fakeuser@notgithub.com'
+            }
+          } as any
+        )
+      } catch (error: any) {
+        // eslint-disable-next-line jest/no-conditional-expect
+        expect(error.message).toBe('Admins Must be GitHub/Microsoft Employees')
+      }
+    })
   })
 
   describe('addUser()', () => {
@@ -432,6 +510,45 @@ describe('actions', () => {
       expect(repos_create).toHaveBeenCalled()
       expect(repos_configure).toHaveBeenCalled()
       expect(issues_complete).toHaveBeenCalled()
+    })
+  })
+
+  describe('removeAdmin()', () => {
+    it('Throws on Invalid Format', async () => {
+      try {
+        await actions.removeAdmin(
+          {
+            action: AllowedIssueAction.CREATE,
+            customerName: 'Nick Testing Industries',
+            customerAbbr: 'NA1',
+            startDate: new Date(2024, 10, 17),
+            endDate: new Date(2024, 10, 20),
+            administrators: [
+              {
+                handle: 'ncalteen',
+                email: 'ncalteen@github.com'
+              }
+            ],
+            attendees: [
+              {
+                handle: 'ncalteen-testuser',
+                email: 'ncalteen+testing@github.com'
+              }
+            ]
+          },
+          {
+            issue: { number: 1 },
+            comment: {
+              body: '.remove-admin invalid format'
+            }
+          } as any
+        )
+      } catch (error: any) {
+        // eslint-disable-next-line jest/no-conditional-expect
+        expect(error.message).toBe(
+          'Invalid Format! Try `.remove-admin handle,email`'
+        )
+      }
     })
   })
 })

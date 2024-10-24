@@ -31576,9 +31576,11 @@ async function configure(request, user, repo, team) {
         cwd: workspace,
         listeners: {
             stdout: (data) => {
+                /* istanbul ignore next */
                 coreExports.info(data.toString());
             },
             stderr: (data) => {
+                /* istanbul ignore next */
                 coreExports.error(data.toString());
             }
         }
@@ -32162,8 +32164,9 @@ async function expire() {
     for (const issue of response) {
         const request = parse(issue, AllowedIssueAction.EXPIRE);
         // If the end date has passed, close the request.
-        if (request.endDate < new Date())
+        if (request.endDate < new Date()) {
             await close(request, issue);
+        }
     }
     coreExports.info('Expired Open Classes');
 }

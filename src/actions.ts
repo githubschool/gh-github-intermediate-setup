@@ -126,8 +126,9 @@ export async function expire(): Promise<void> {
     )
 
     // If the end date has passed, close the request.
-    if (request.endDate < new Date())
+    if (request.endDate < new Date()) {
       await close(request, issue as IssuesEvent['issue'])
+    }
   }
 
   core.info('Expired Open Classes')

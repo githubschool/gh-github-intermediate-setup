@@ -1,5 +1,8 @@
 import { jest } from '@jest/globals'
+import * as core from '../__fixtures__/core.js'
 import { AllowedIssueAction, AllowedIssueCommentAction } from '../src/enums'
+
+jest.unstable_mockModule('@actions/core', () => core)
 
 const events = await import('../src/events.js')
 
@@ -9,6 +12,16 @@ describe('events', () => {
   })
 
   describe('getAction()', () => {
+    it('Returns Expire Action for an Expire Event', () => {
+      core.getInput.mockReturnValueOnce('true')
+
+      expect(
+        events.getAction('issues', {
+          action: 'opened'
+        } as any)
+      ).toBe(AllowedIssueAction.EXPIRE)
+    })
+
     it('Returns Create Action for Issue Opened Event', () => {
       expect(
         events.getAction('issues', {

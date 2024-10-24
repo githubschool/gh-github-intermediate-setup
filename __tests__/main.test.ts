@@ -30,6 +30,9 @@ const actions_create: jest.SpiedFunction<
 const actions_close: jest.SpiedFunction<
   typeof import('../src/actions.js').close
 > = jest.fn()
+const actions_expire: jest.SpiedFunction<
+  typeof import('../src/actions.js').expire
+> = jest.fn()
 const actions_addAdmin: jest.SpiedFunction<
   typeof import('../src/actions.js').addAdmin
 > = jest.fn()
@@ -57,6 +60,7 @@ jest.unstable_mockModule('../src/actions.js', () => {
   return {
     create: actions_create,
     close: actions_close,
+    expire: actions_expire,
     addAdmin: actions_addAdmin,
     addUser: actions_addUser,
     removeAdmin: actions_removeAdmin,
@@ -65,6 +69,9 @@ jest.unstable_mockModule('../src/actions.js', () => {
 })
 
 const main = await import('../src/main.js')
+
+const { Octokit } = await import('@octokit/rest')
+const mocktokit = jest.mocked(new Octokit())
 
 describe('main', () => {
   afterEach(() => {
@@ -83,6 +90,14 @@ describe('main', () => {
     expect(actions_removeAdmin).not.toHaveBeenCalled()
     expect(actions_removeUser).not.toHaveBeenCalled()
     expect(core.setFailed).not.toHaveBeenCalled()
+  })
+
+  it('Processes an Expire Event', async () => {
+    events_getAction.mockReturnValue(AllowedIssueAction.EXPIRE)
+
+    await main.run()
+
+    expect(actions_expire).toHaveBeenCalledTimes(1)
   })
 
   it('Processes a Class Create Event', async () => {
@@ -131,5 +146,15 @@ describe('main', () => {
     await main.run()
 
     expect(actions_removeUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('Comments if an Error Occurs', async () => {
+    events_getAction.mockReturnValue(AllowedIssueAction.CREATE)
+    actions_create.mockRejectedValue(new Error('Test Error'))
+
+    await main.run()
+
+    expect(mocktokit.rest.issues.createComment).toHaveBeenCalled()
+    expect(core.setFailed).toHaveBeenCalled()
   })
 })

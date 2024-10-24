@@ -135,9 +135,11 @@ export async function configure(
     cwd: workspace,
     listeners: {
       stdout: (data: Buffer) => {
+        /* istanbul ignore next */
         core.info(data.toString())
       },
       stderr: (data: Buffer) => {
+        /* istanbul ignore next */
         core.error(data.toString())
       }
     }

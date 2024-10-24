@@ -462,6 +462,30 @@ describe('issues', () => {
       ).toBe('string')
     })
 
+    it('Generates an Expire Message', () => {
+      expect(
+        typeof issues.generateMessage({
+          action: AllowedIssueAction.EXPIRE,
+          customerName: 'Nick Testing Industries',
+          customerAbbr: 'NA1',
+          startDate: new Date(2024, 10, 17),
+          endDate: new Date(2024, 10, 20),
+          administrators: [
+            {
+              handle: 'ncalteen',
+              email: 'ncalteen@github.com'
+            }
+          ],
+          attendees: [
+            {
+              handle: 'ncalteen-testuser',
+              email: 'ncalteen+testing@github.com'
+            }
+          ]
+        })
+      ).toBe('string')
+    })
+
     it('Generates a Remove Admin Message', () => {
       github.context.payload.comment.body =
         '.remove-admin ncalteen,ncalteen@github.com'
@@ -541,6 +565,24 @@ describe('issues', () => {
         // eslint-disable-next-line jest/no-conditional-expect
         expect(e.message).toBe('Invalid Action: invalid')
       }
+    })
+  })
+
+  describe('addLabels()', () => {
+    it('Adds Labels to an Issue', async () => {
+      await issues.addLabels(
+        {
+          number: 1
+        } as any,
+        ['label1', 'label2']
+      )
+
+      expect(mocktokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        issue_number: 1,
+        owner: 'githubschool',
+        repo: 'gh-github-intermediate-issueops',
+        labels: ['label1', 'label2']
+      })
     })
   })
 })
