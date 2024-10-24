@@ -274,7 +274,7 @@ describe('issues', () => {
       core.getInput.mockReturnValue('github-token')
       teams_exists.mockResolvedValue(true)
       repos_exists.mockResolvedValue(true)
-      users_isOrgMember.mockResolvedValue(true)
+      users_isOrgMember.mockResolvedValue('active')
       mocktokit.graphql.mockResolvedValue({
         user: {
           isEmployee: false,

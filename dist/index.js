@@ -31774,7 +31774,7 @@ async function configureLab11(options, octokit) {
  * Checks if the user is a member of the organization.
  *
  * @param handle User Handle
- * @returns True if User is Member
+ * @returns User Membership Status
  */
 async function isOrgMember(handle) {
     coreExports.info(`Checking if User is Org Member: ${handle}`);
@@ -31782,18 +31782,18 @@ async function isOrgMember(handle) {
     const token = coreExports.getInput('github_token', { required: true });
     const octokit = githubExports.getOctokit(token);
     try {
-        await octokit.rest.orgs.getMembershipForUser({
+        const response = await octokit.rest.orgs.getMembershipForUser({
             org: Common.OWNER,
             username: handle
         });
+        coreExports.info(`User is Org Member: ${handle}`);
+        return response.data.state;
     }
     catch (error) {
         coreExports.info(`Error: ${error.status}`);
         if (error.status === 404)
-            return false;
+            return undefined;
     }
-    coreExports.info(`User is Org Member: ${handle}`);
-    return true;
 }
 /**
  * Removes all users in this class from the organization.
@@ -32180,15 +32180,35 @@ async function removeAdmin(request, payload) {
         }
       }
       `, { login: user.handle });
+    // Get the user's membership state.
+    const memberState = await isOrgMember(user.handle);
     // Remove the user from the organization (if they're not a GitHub or Microsoft
     // employee). This will also remove them from the team.
     if (!response.user.isEmployee &&
         !response.user.email.includes('@microsoft.com') &&
-        (await isOrgMember(user.handle)))
+        memberState === 'active')
         await octokit.rest.orgs.removeMember({
             org: Common.OWNER,
             username: user.handle
         });
+    // If the membership is still pending, cancel the invitation.
+    if (!response.user.isEmployee &&
+        !response.user.email.includes('@microsoft.com') &&
+        memberState === 'pending') {
+        // Get the invitation ID.
+        const invitations = await octokit.paginate(octokit.rest.orgs.listPendingInvitations, {
+            org: Common.OWNER
+        });
+        for (const invitation of invitations) {
+            if (invitation.login === user.handle) {
+                // Cancel the invitation.
+                await octokit.rest.orgs.cancelInvitation({
+                    org: Common.OWNER,
+                    invitation_id: invitation.id
+                });
+            }
+        }
+    }
     await complete(request, payload.issue);
     coreExports.info(`Removed Admin from Class Request: #${payload.issue.number}`);
 }
@@ -32215,22 +32235,42 @@ async function removeUser(request, payload) {
     };
     // Check if the user is a GitHub/Microsoft employee.
     const response = await octokit.graphql(`
-    query($login: String!) {
-      user(login: $login) {
-        isEmployee
-        email
+      query($login: String!) {
+        user(login: $login) {
+          isEmployee
+          email
+        }
       }
-    }
-    `, { login: user.handle });
-    // Remove the user from the organization (if they're not a GitHub or
-    // Microsoft employee). This will also remove them from the team.
+      `, { login: user.handle });
+    // Get the user's membership state.
+    const memberState = await isOrgMember(user.handle);
+    // Remove the user from the organization (if they're not a GitHub or Microsoft
+    // employee). This will also remove them from the team.
     if (!response.user.isEmployee &&
         !response.user.email.includes('@microsoft.com') &&
-        (await isOrgMember(user.handle)))
+        memberState === 'active')
         await octokit.rest.orgs.removeMember({
             org: Common.OWNER,
             username: user.handle
         });
+    // If the membership is still pending, cancel the invitation.
+    if (!response.user.isEmployee &&
+        !response.user.email.includes('@microsoft.com') &&
+        memberState === 'pending') {
+        // Get the invitation ID.
+        const invitations = await octokit.paginate(octokit.rest.orgs.listPendingInvitations, {
+            org: Common.OWNER
+        });
+        for (const invitation of invitations) {
+            if (invitation.login === user.handle) {
+                // Cancel the invitation.
+                await octokit.rest.orgs.cancelInvitation({
+                    org: Common.OWNER,
+                    invitation_id: invitation.id
+                });
+            }
+        }
+    }
     // Delete the user repository.
     if (await exists(request, user))
         await octokit.rest.repos.delete({

@@ -8,9 +8,11 @@ import * as teams from './teams.js'
  * Checks if the user is a member of the organization.
  *
  * @param handle User Handle
- * @returns True if User is Member
+ * @returns User Membership Status
  */
-export async function isOrgMember(handle: string): Promise<boolean> {
+export async function isOrgMember(
+  handle: string
+): Promise<'pending' | 'active' | undefined> {
   core.info(`Checking if User is Org Member: ${handle}`)
 
   // Create the authenticated Octokit client.
@@ -18,17 +20,17 @@ export async function isOrgMember(handle: string): Promise<boolean> {
   const octokit = github.getOctokit(token)
 
   try {
-    await octokit.rest.orgs.getMembershipForUser({
+    const response = await octokit.rest.orgs.getMembershipForUser({
       org: Common.OWNER,
       username: handle
     })
+
+    core.info(`User is Org Member: ${handle}`)
+    return response.data.state
   } catch (error: any) {
     core.info(`Error: ${error.status}`)
-    if (error.status === 404) return false
+    if (error.status === 404) return undefined
   }
-
-  core.info(`User is Org Member: ${handle}`)
-  return true
 }
 
 /**
