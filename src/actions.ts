@@ -37,6 +37,11 @@ export async function create(
   // Create and configure the user repositories.
   for (const user of request.attendees) {
     const repo = await repos.create(request, user, team)
+
+    // Sleep 5s to wait for the repo to be created and initial commit pushed.
+    if (process.env.NODE_ENV !== 'test')
+      await new Promise((resolve) => setTimeout(resolve, 5000))
+
     await repos.configure(request, user, repo, team)
   }
 

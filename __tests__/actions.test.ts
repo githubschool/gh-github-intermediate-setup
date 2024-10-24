@@ -4,6 +4,7 @@ import * as github from '../__fixtures__/github.js'
 import * as octokit from '../__fixtures__/octokit.js'
 import { AllowedIssueAction } from '../src/enums.js'
 
+jest.useFakeTimers()
 jest.unstable_mockModule('@actions/core', () => core)
 jest.unstable_mockModule('@actions/github', () => github)
 jest.unstable_mockModule('@octokit/rest', async () => {
@@ -142,6 +143,8 @@ describe('actions', () => {
           },
           { issue: { number: 1 } } as any
         )
+
+        jest.runAllTimers()
       } catch (error: any) {
         // eslint-disable-next-line jest/no-conditional-expect
         expect(error.message).toBe('Team Already Exists: gh-int-na1')
