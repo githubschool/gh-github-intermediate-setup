@@ -204,6 +204,12 @@ describe('repos', () => {
     })
 
     it('Configures a Repo', async () => {
+      exec.getExecOutput.mockResolvedValue({
+        stdout: 'stdout',
+        stderr: 'stderr',
+        exitCode: 0
+      } as never)
+
       await repos.configure(
         {
           action: AllowedIssueAction.CREATE,

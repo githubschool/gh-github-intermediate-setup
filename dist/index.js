@@ -1,11 +1,11 @@
 import require$$0 from 'os';
 import require$$0$1 from 'crypto';
-import require$$1 from 'fs';
-import require$$1$5 from 'path';
+import fs from 'fs';
+import require$$1$4 from 'path';
 import require$$2$1 from 'http';
 import require$$3$1 from 'https';
 import require$$0$5 from 'net';
-import require$$1$1 from 'tls';
+import require$$1 from 'tls';
 import require$$4$1 from 'events';
 import require$$0$3 from 'assert';
 import require$$0$2 from 'util';
@@ -14,14 +14,14 @@ import require$$7 from 'buffer';
 import require$$8 from 'querystring';
 import require$$13 from 'stream/web';
 import require$$0$7 from 'node:stream';
-import require$$1$2 from 'node:util';
+import require$$1$1 from 'node:util';
 import require$$0$6 from 'node:events';
 import require$$0$8 from 'worker_threads';
 import require$$2$2 from 'perf_hooks';
 import require$$5 from 'util/types';
 import require$$4$2 from 'async_hooks';
-import require$$1$3 from 'console';
-import require$$1$4 from 'url';
+import require$$1$2 from 'console';
+import require$$1$3 from 'url';
 import require$$3$2 from 'zlib';
 import require$$6 from 'string_decoder';
 import require$$0$9 from 'diagnostics_channel';
@@ -251,7 +251,7 @@ function requireFileCommand () {
 	// We use any as a valid input type
 	/* eslint-disable @typescript-eslint/no-explicit-any */
 	const crypto = __importStar(require$$0$1);
-	const fs = __importStar(require$$1);
+	const fs$1 = __importStar(fs);
 	const os = __importStar(require$$0);
 	const utils_1 = requireUtils$3();
 	function issueFileCommand(command, message) {
@@ -259,10 +259,10 @@ function requireFileCommand () {
 	    if (!filePath) {
 	        throw new Error(`Unable to find environment variable for file command ${command}`);
 	    }
-	    if (!fs.existsSync(filePath)) {
+	    if (!fs$1.existsSync(filePath)) {
 	        throw new Error(`Missing file at path: ${filePath}`);
 	    }
-	    fs.appendFileSync(filePath, `${(0, utils_1.toCommandValue)(message)}${os.EOL}`, {
+	    fs$1.appendFileSync(filePath, `${(0, utils_1.toCommandValue)(message)}${os.EOL}`, {
 	        encoding: 'utf8'
 	    });
 	}
@@ -401,7 +401,7 @@ var hasRequiredTunnel$1;
 function requireTunnel$1 () {
 	if (hasRequiredTunnel$1) return tunnel$1;
 	hasRequiredTunnel$1 = 1;
-	var tls = require$$1$1;
+	var tls = require$$1;
 	var http = require$$2$1;
 	var https = require$$3$1;
 	var events = require$$4$1;
@@ -1783,7 +1783,7 @@ function requireSbmh () {
 	 * by Hongli Lai at: https://github.com/FooBarWidget/boyer-moore-horspool
 	 */
 	const EventEmitter = require$$0$6.EventEmitter;
-	const inherits = require$$1$2.inherits;
+	const inherits = require$$1$1.inherits;
 
 	function SBMH (needle) {
 	  if (typeof needle === 'string') {
@@ -1992,7 +1992,7 @@ function requirePartStream () {
 	if (hasRequiredPartStream) return PartStream_1;
 	hasRequiredPartStream = 1;
 
-	const inherits = require$$1$2.inherits;
+	const inherits = require$$1$1.inherits;
 	const ReadableStream = require$$0$7.Readable;
 
 	function PartStream (opts) {
@@ -2038,7 +2038,7 @@ function requireHeaderParser () {
 	hasRequiredHeaderParser = 1;
 
 	const EventEmitter = require$$0$6.EventEmitter;
-	const inherits = require$$1$2.inherits;
+	const inherits = require$$1$1.inherits;
 	const getLimit = requireGetLimit();
 
 	const StreamSearch = requireSbmh();
@@ -2146,7 +2146,7 @@ function requireDicer () {
 	hasRequiredDicer = 1;
 
 	const WritableStream = require$$0$7.Writable;
-	const inherits = require$$1$2.inherits;
+	const inherits = require$$1$1.inherits;
 
 	const StreamSearch = requireSbmh();
 
@@ -2723,7 +2723,7 @@ function requireMultipart () {
 	//     -- this will require modifications to utils.parseParams
 
 	const { Readable } = require$$0$7;
-	const { inherits } = require$$1$2;
+	const { inherits } = require$$1$1;
 
 	const Dicer = requireDicer();
 
@@ -3289,7 +3289,7 @@ function requireMain () {
 	hasRequiredMain = 1;
 
 	const WritableStream = require$$0$7.Writable;
-	const { inherits } = require$$1$2;
+	const { inherits } = require$$1$1;
 	const Dicer = requireDicer();
 
 	const MultipartParser = requireMultipart();
@@ -8105,7 +8105,7 @@ function requireConnect () {
 	    let socket;
 	    if (protocol === 'https:') {
 	      if (!tls) {
-	        tls = require$$1$1;
+	        tls = require$$1;
 	      }
 	      servername = servername || options.servername || util.getServerName(host) || null;
 
@@ -14115,7 +14115,7 @@ function requirePendingInterceptorsFormatter () {
 	hasRequiredPendingInterceptorsFormatter = 1;
 
 	const { Transform } = require$$0$4;
-	const { Console } = require$$1$3;
+	const { Console } = require$$1$2;
 
 	/**
 	 * Gets the output of `console.table(…)` as a string.
@@ -14342,7 +14342,7 @@ function requireProxyAgent () {
 	hasRequiredProxyAgent = 1;
 
 	const { kProxy, kClose, kDestroy, kInterceptors } = requireSymbols$4();
-	const { URL } = require$$1$4;
+	const { URL } = require$$1$3;
 	const Agent = requireAgent();
 	const Pool = requirePool();
 	const DispatcherBase = requireDispatcherBase();
@@ -25221,7 +25221,7 @@ function requireSummary () {
 		Object.defineProperty(exports, "__esModule", { value: true });
 		exports.summary = exports.markdownSummary = exports.SUMMARY_DOCS_URL = exports.SUMMARY_ENV_VAR = void 0;
 		const os_1 = require$$0;
-		const fs_1 = require$$1;
+		const fs_1 = fs;
 		const { access, appendFile, writeFile } = fs_1.promises;
 		exports.SUMMARY_ENV_VAR = 'GITHUB_STEP_SUMMARY';
 		exports.SUMMARY_DOCS_URL = 'https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary';
@@ -25527,7 +25527,7 @@ function requirePathUtils () {
 	};
 	Object.defineProperty(pathUtils, "__esModule", { value: true });
 	pathUtils.toPlatformPath = pathUtils.toWin32Path = pathUtils.toPosixPath = void 0;
-	const path = __importStar(require$$1$5);
+	const path = __importStar(require$$1$4);
 	/**
 	 * toPosixPath converts the given path to the posix form. On Windows, \\ will be
 	 * replaced with /.
@@ -25613,16 +25613,16 @@ function requireIoUtil () {
 		var _a;
 		Object.defineProperty(exports, "__esModule", { value: true });
 		exports.getCmdPath = exports.tryGetExecutablePath = exports.isRooted = exports.isDirectory = exports.exists = exports.READONLY = exports.UV_FS_O_EXLOCK = exports.IS_WINDOWS = exports.unlink = exports.symlink = exports.stat = exports.rmdir = exports.rm = exports.rename = exports.readlink = exports.readdir = exports.open = exports.mkdir = exports.lstat = exports.copyFile = exports.chmod = void 0;
-		const fs = __importStar(require$$1);
-		const path = __importStar(require$$1$5);
-		_a = fs.promises
+		const fs$1 = __importStar(fs);
+		const path = __importStar(require$$1$4);
+		_a = fs$1.promises
 		// export const {open} = 'fs'
 		, exports.chmod = _a.chmod, exports.copyFile = _a.copyFile, exports.lstat = _a.lstat, exports.mkdir = _a.mkdir, exports.open = _a.open, exports.readdir = _a.readdir, exports.readlink = _a.readlink, exports.rename = _a.rename, exports.rm = _a.rm, exports.rmdir = _a.rmdir, exports.stat = _a.stat, exports.symlink = _a.symlink, exports.unlink = _a.unlink;
 		// export const {open} = 'fs'
 		exports.IS_WINDOWS = process.platform === 'win32';
 		// See https://github.com/nodejs/node/blob/d0153aee367422d0858105abec186da4dff0a0c5/deps/uv/include/uv/win.h#L691
 		exports.UV_FS_O_EXLOCK = 0x10000000;
-		exports.READONLY = fs.constants.O_RDONLY;
+		exports.READONLY = fs$1.constants.O_RDONLY;
 		function exists(fsPath) {
 		    return __awaiter(this, void 0, void 0, function* () {
 		        try {
@@ -25804,7 +25804,7 @@ function requireIo () {
 	Object.defineProperty(io, "__esModule", { value: true });
 	io.findInPath = io.which = io.mkdirP = io.rmRF = io.mv = io.cp = void 0;
 	const assert_1 = require$$0$3;
-	const path = __importStar(require$$1$5);
+	const path = __importStar(require$$1$4);
 	const ioUtil = __importStar(requireIoUtil());
 	/**
 	 * Copies a file or folder.
@@ -26112,7 +26112,7 @@ function requireToolrunner () {
 	const os = __importStar(require$$0);
 	const events = __importStar(require$$4$1);
 	const child = __importStar(require$$2$3);
-	const path = __importStar(require$$1$5);
+	const path = __importStar(require$$1$4);
 	const io = __importStar(requireIo());
 	const ioUtil = __importStar(requireIoUtil());
 	const timers_1 = require$$6$1;
@@ -26956,7 +26956,7 @@ function requireCore () {
 		const file_command_1 = requireFileCommand();
 		const utils_1 = requireUtils$3();
 		const os = __importStar(require$$0);
-		const path = __importStar(require$$1$5);
+		const path = __importStar(require$$1$4);
 		const oidc_utils_1 = requireOidcUtils();
 		/**
 		 * The code to exit an action
@@ -27278,7 +27278,7 @@ function requireContext () {
 	hasRequiredContext = 1;
 	Object.defineProperty(context, "__esModule", { value: true });
 	context.Context = void 0;
-	const fs_1 = require$$1;
+	const fs_1 = fs;
 	const os_1 = require$$0;
 	class Context {
 	    /**
@@ -31608,7 +31608,7 @@ async function configure(request, user, repo, team) {
     await configureLab1();
     await configureLab2();
     await configureLab3(options);
-    await configureLab4();
+    await configureLab4(options);
     await configureLab5();
     await configureLab6();
     await configureLab7();
@@ -31679,13 +31679,11 @@ async function configureLab3(options, octokit) {
     for (let i = 1; i < 10; i++) {
         // Get the file contents.
         const filename = `keyboard_input_manager.test.${i}`;
-        const contents = require$$1.readFileSync(`${process.env.GITHUB_WORKSPACE}/lab-files/3-git-bisect/${filename}`, 'utf8');
+        const contents = fs.readFileSync(`${process.env.GITHUB_WORKSPACE}/lab-files/3-git-bisect/${filename}`, 'utf8');
         // Remove the old file if it exists.
-        await execExports.exec('ls', ['-la'], options);
-        await execExports.exec('ls', ['-la', '__tests__'], options);
         await execExports.exec('rm', ['__tests__/keyboard_input_manager.test.ts'], options);
         // Write the new file.
-        require$$1.writeFileSync(`${options.cwd}/__tests__/keyboard_input_manager.test.ts`, contents, 'utf8');
+        fs.writeFileSync(`${options.cwd}/__tests__/keyboard_input_manager.test.ts`, contents, 'utf8');
         // Commit the changes.
         await execExports.exec('git', ['add', '.'], options);
         await execExports.exec('git', ['commit', '-m', `Adding unit tests ${i}`], options);
@@ -31695,17 +31693,29 @@ async function configureLab3(options, octokit) {
 /**
  * Configure Lab 4: Interactive Rebase
  *
+ * This setup step creates a feature branch off an earlier commit on main, so
+ * that students can rebase the feature branch onto the latest commit on main.
+ *
  * @param options Exec Options
  * @param octokit Octokit Client
  */
 async function configureLab4(options, octokit) {
     coreExports.info('Configuring Lab 4: Interactive Rebase');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
+    // Get the file contents.
+    const contents = fs.readFileSync(`${process.env.GITHUB_WORKSPACE}/lab-files/4-interactive-rebase/html_actuator.1`, 'utf8');
+    // After the lab 3 configuration runs, there should be ~10 commits on main.
+    // Get the fifth previous commit SHA.
+    const response = await execExports.getExecOutput('git', ['rev-parse', 'HEAD~5'], options);
+    const sha = response.stdout?.trim();
+    // Checkout a feature branch at the SHA.
+    await execExports.exec('git', ['checkout', '-b', 'feature/animate-score', sha], options);
+    // Remove the old file if it exists.
+    await execExports.exec('rm', ['src/html_actuator.ts'], options);
+    // Write the new file.
+    fs.writeFileSync(`${options.cwd}/src/html_actuator.ts`, contents, 'utf8');
+    // Commit the changes.
+    await execExports.exec('git', ['add', '.'], options);
+    await execExports.exec('git', ['commit', '-m', 'Animate score update'], options);
     coreExports.info('Configured Lab 4: Interactive Rebase');
 }
 /**

@@ -282,8 +282,6 @@ export async function configureLab3(
     )
 
     // Remove the old file if it exists.
-    await exec.exec('ls', ['-la'], options)
-    await exec.exec('ls', ['-la', '__tests__'], options)
     await exec.exec('rm', ['__tests__/keyboard_input_manager.test.ts'], options)
 
     // Write the new file.
@@ -304,6 +302,9 @@ export async function configureLab3(
 /**
  * Configure Lab 4: Interactive Rebase
  *
+ * This setup step creates a feature branch off an earlier commit on main, so
+ * that students can rebase the feature branch onto the latest commit on main.
+ *
  * @param options Exec Options
  * @param octokit Octokit Client
  */
@@ -313,13 +314,37 @@ export async function configureLab4(
 ): Promise<void> {
   core.info('Configuring Lab 4: Interactive Rebase')
 
-  // // Commit the updates.
-  // core.info('Committing Changes')
-  // await exec.exec('git', ['add', '.'], options)
-  // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
+  // Get the file contents.
+  const contents = fs.readFileSync(
+    `${process.env.GITHUB_WORKSPACE}/lab-files/4-interactive-rebase/html_actuator.1`,
+    'utf8'
+  )
 
-  // core.info('Pushing changes')
-  // await exec.exec('git', ['push'], options)
+  // After the lab 3 configuration runs, there should be ~10 commits on main.
+  // Get the fifth previous commit SHA.
+  const response = await exec.getExecOutput(
+    'git',
+    ['rev-parse', 'HEAD~5'],
+    options
+  )
+  const sha = response.stdout?.trim()
+
+  // Checkout a feature branch at the SHA.
+  await exec.exec(
+    'git',
+    ['checkout', '-b', 'feature/animate-score', sha],
+    options
+  )
+
+  // Remove the old file if it exists.
+  await exec.exec('rm', ['src/html_actuator.ts'], options)
+
+  // Write the new file.
+  fs.writeFileSync(`${options.cwd}/src/html_actuator.ts`, contents, 'utf8')
+
+  // Commit the changes.
+  await exec.exec('git', ['add', '.'], options)
+  await exec.exec('git', ['commit', '-m', 'Animate score update'], options)
 
   core.info('Configured Lab 4: Interactive Rebase')
 }

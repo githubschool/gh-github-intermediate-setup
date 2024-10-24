@@ -67,6 +67,9 @@ export declare function configureLab3(options: ExecOptions, octokit: InstanceTyp
 /**
  * Configure Lab 4: Interactive Rebase
  *
+ * This setup step creates a feature branch off an earlier commit on main, so
+ * that students can rebase the feature branch onto the latest commit on main.
+ *
  * @param options Exec Options
  * @param octokit Octokit Client
  */
