@@ -31,8 +31,16 @@ export declare function create(request: ClassRequest): Promise<Team>;
  *
  * @param request Class Request
  * @param user User to Add
+ * @param role Role to Assign
  */
 export declare function addUser(request: ClassRequest, user: User, role?: 'member' | 'maintainer'): Promise<void>;
+/**
+ * Removes a member to the team.
+ *
+ * @param request Class Request
+ * @param user User to Remove
+ */
+export declare function removeUser(request: ClassRequest, user: User): Promise<void>;
 /**
  * Deletes the team.
  *

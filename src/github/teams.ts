@@ -95,6 +95,7 @@ export async function create(request: ClassRequest): Promise<Team> {
  *
  * @param request Class Request
  * @param user User to Add
+ * @param role Role to Assign
  */
 export async function addUser(
   request: ClassRequest,
@@ -116,6 +117,45 @@ export async function addUser(
   })
 
   core.info(`Added User to Class Team: ${user.handle}`)
+}
+
+/**
+ * Removes a member to the team.
+ *
+ * @param request Class Request
+ * @param user User to Remove
+ */
+export async function removeUser(
+  request: ClassRequest,
+  user: User
+): Promise<void> {
+  core.info(`Removing User from Class Team: ${user.handle}`)
+
+  // Create the authenticated Octokit client.
+  const token: string = core.getInput('github_token', { required: true })
+  const octokit = github.getOctokit(token)
+
+  try {
+    // Check if the user is a member (they must have accepted the invitation).
+    const membership = await octokit.rest.teams.getMembershipForUserInOrg({
+      org: Common.OWNER,
+      team_slug: generateTeamName(request),
+      username: user.handle
+    })
+
+    // Remove the user from the team.
+    if (membership.data.state === 'active')
+      await octokit.rest.teams.removeMembershipForUserInOrg({
+        org: Common.OWNER,
+        team_slug: generateTeamName(request),
+        username: user.handle
+      })
+  } catch (error: any) {
+    // If the user could not be found, they're not in the organization.
+    if (error.status !== 404) throw error
+  }
+
+  core.info(`Removed User from Class Team: ${user.handle}`)
 }
 
 /**

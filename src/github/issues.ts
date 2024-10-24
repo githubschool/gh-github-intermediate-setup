@@ -345,7 +345,7 @@ export function generateMessage(request: ClassRequest): string {
       email: payload.comment.body.split(' ')[1].split(',')[1]
     }
 
-    return `The following member has been removed: ${user.handle}`
+    return `The following member has been removed: \`${user.handle}\``
   }
 
   throw new Error(`Invalid Action: ${request.action}`)

@@ -281,6 +281,9 @@ export async function removeAdmin(
     }
   }
 
+  // Remove from the team.
+  await teams.removeUser(request, user)
+
   await issues.complete(request, payload.issue)
 
   core.info(`Removed Admin from Class Request: #${payload.issue.number}`)
@@ -376,6 +379,9 @@ export async function removeUser(
       owner: Common.OWNER,
       repo: repos.generateRepoName(request, user)
     })
+
+  // Remove from the team.
+  await teams.removeUser(request, user)
 
   await issues.complete(request, payload.issue)
 

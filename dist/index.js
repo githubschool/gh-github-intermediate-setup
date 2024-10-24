@@ -31382,6 +31382,7 @@ async function create$2(request) {
  *
  * @param request Class Request
  * @param user User to Add
+ * @param role Role to Assign
  */
 async function addUser$1(request, user, role = 'member') {
     coreExports.info(`Adding User to Class Team: ${user.handle}`);
@@ -31396,6 +31397,39 @@ async function addUser$1(request, user, role = 'member') {
         role
     });
     coreExports.info(`Added User to Class Team: ${user.handle}`);
+}
+/**
+ * Removes a member to the team.
+ *
+ * @param request Class Request
+ * @param user User to Remove
+ */
+async function removeUser$1(request, user) {
+    coreExports.info(`Removing User from Class Team: ${user.handle}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    try {
+        // Check if the user is a member (they must have accepted the invitation).
+        const membership = await octokit.rest.teams.getMembershipForUserInOrg({
+            org: Common.OWNER,
+            team_slug: generateTeamName(request),
+            username: user.handle
+        });
+        // Remove the user from the team.
+        if (membership.data.state === 'active')
+            await octokit.rest.teams.removeMembershipForUserInOrg({
+                org: Common.OWNER,
+                team_slug: generateTeamName(request),
+                username: user.handle
+            });
+    }
+    catch (error) {
+        // If the user could not be found, they're not in the organization.
+        if (error.status !== 404)
+            throw error;
+    }
+    coreExports.info(`Removed User from Class Team: ${user.handle}`);
 }
 /**
  * Deletes the team.
@@ -32013,7 +32047,7 @@ function generateMessage(request) {
             handle: payload.comment.body.split(' ')[1].split(',')[0],
             email: payload.comment.body.split(' ')[1].split(',')[1]
         };
-        return `The following member has been removed: ${user.handle}`;
+        return `The following member has been removed: \`${user.handle}\``;
     }
     throw new Error(`Invalid Action: ${request.action}`);
 }
@@ -32209,6 +32243,8 @@ async function removeAdmin(request, payload) {
             }
         }
     }
+    // Remove from the team.
+    await removeUser$1(request, user);
     await complete(request, payload.issue);
     coreExports.info(`Removed Admin from Class Request: #${payload.issue.number}`);
 }
@@ -32277,6 +32313,8 @@ async function removeUser(request, payload) {
             owner: Common.OWNER,
             repo: generateRepoName(request, user)
         });
+    // Remove from the team.
+    await removeUser$1(request, user);
     await complete(request, payload.issue);
     coreExports.info(`Removed User from Class Request: #${payload.issue.number}`);
 }
