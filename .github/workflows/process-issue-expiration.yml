@@ -1,0 +1,25 @@
+name: Process Issue Expiration
+
+# Run once per day
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: write
+  id-token: write
+  issues: write
+
+jobs:
+  expire:
+    name: Close Expired Issues
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Process IssueOps Request
+        id: process
+        uses: githubschool/gh-github-intermediate-issueops@main
+        with:
+          expire: true
+          github_token: ${{ steps.token.outputs.token }}
+          workspace: ${{ github.workspace }}

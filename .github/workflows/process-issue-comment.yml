@@ -11,7 +11,7 @@ permissions:
   issues: write
 
 jobs:
-  submit:
+  comment:
     name: Process Issue Comment
     runs-on: ubuntu-latest
 

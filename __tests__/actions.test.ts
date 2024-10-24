@@ -246,8 +246,6 @@ describe('actions', () => {
       expect(repos_deleteRepositories).toHaveBeenCalled()
       expect(users_removeUsers).toHaveBeenCalled()
       expect(teams_deleteTeam).toHaveBeenCalled()
-      expect(mocktokit.rest.issues.createComment).toHaveBeenCalled()
-      expect(mocktokit.rest.issues.update).toHaveBeenCalled()
     })
 
     it('Closes a Closed Class', async () => {

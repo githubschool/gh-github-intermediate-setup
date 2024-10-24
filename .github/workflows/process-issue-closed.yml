@@ -11,7 +11,7 @@ permissions:
   issues: write
 
 jobs:
-  submit:
+  closed:
     name: Process Issue Closed
     runs-on: ubuntu-latest
 

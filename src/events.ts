@@ -1,3 +1,4 @@
+import * as core from '@actions/core'
 import type { IssueCommentEvent, IssuesEvent } from '@octokit/webhooks-types'
 import { AllowedIssueAction, AllowedIssueCommentAction } from './enums.js'
 
@@ -12,6 +13,9 @@ export function getAction(
   name: string,
   payload: IssueCommentEvent | IssuesEvent
 ): AllowedIssueAction | AllowedIssueCommentAction | undefined {
+  // The expire action always takes precedence.
+  if (core.getInput('expire') === 'true') return AllowedIssueAction.EXPIRE
+
   if (name === 'issues') {
     // Issue open/edit only supports the `create` action.
     if (payload.action === 'opened' || payload.action === 'edited')

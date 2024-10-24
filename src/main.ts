@@ -21,6 +21,9 @@ export async function run(): Promise<void> {
   if (!action)
     return core.info(`Ignoring Action: ${eventName} / ${payload.action}`)
 
+  // The expire action always takes precedence.
+  if (action === AllowedIssueAction.EXPIRE) await actions.expire()
+
   try {
     core.info(`Processing Action: ${action}`)
 
@@ -28,9 +31,9 @@ export async function run(): Promise<void> {
     const request = issues.parse(payload.issue, action)
 
     if (action === AllowedIssueAction.CREATE)
-      await actions.create(request, payload as IssuesEvent)
+      await actions.create(request, payload.issue)
     else if (action === AllowedIssueAction.CLOSE)
-      await actions.close(request, payload as IssuesEvent)
+      await actions.close(request, payload.issue)
     else if (action === AllowedIssueCommentAction.ADD_ADMIN)
       await actions.addAdmin(request, payload as IssueCommentEvent)
     else if (action === AllowedIssueCommentAction.ADD_USER)

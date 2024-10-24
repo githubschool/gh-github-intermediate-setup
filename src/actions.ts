@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import type { IssueCommentEvent, IssuesEvent } from '@octokit/webhooks-types'
-import { Common } from './enums.js'
+import { AllowedIssueAction, Common } from './enums.js'
 import * as issues from './github/issues.js'
 import * as repos from './github/repos.js'
 import * as teams from './github/teams.js'
@@ -12,13 +12,13 @@ import type { ClassRequest } from './types.js'
  * Creates a class from a request.
  *
  * @param request Class Request
- * @param payload Issue Payload
+ * @param issue Issue Payload
  */
 export async function create(
   request: ClassRequest,
-  payload: IssuesEvent
+  issue: IssuesEvent['issue']
 ): Promise<void> {
-  core.info(`Creating Class Request: #${payload.issue.number}`)
+  core.info(`Creating Class Request: #${issue.number}`)
 
   // Check if the team already exists.
   if (await teams.exists(request))
@@ -41,25 +41,25 @@ export async function create(
   }
 
   // Add the provisioned label.
-  await issues.addLabels(payload.issue, ['provisioned'])
+  await issues.addLabels(issue, ['provisioned'])
 
   // Comment on the issue with the summary.
-  await issues.complete(request, payload.issue)
+  await issues.complete(request, issue)
 
-  core.info(`Created Class Request: #${payload.issue.number}`)
+  core.info(`Created Class Request: #${issue.number}`)
 }
 
 /**
  * Closes a class.
  *
  * @param request Class Request
- * @param payload Issue Payload
+ * @param issue Issue Payload
  */
 export async function close(
   request: ClassRequest,
-  payload: IssuesEvent
+  issue: IssuesEvent['issue']
 ): Promise<void> {
-  core.info(`Closing Class Request: #${payload.issue.number}`)
+  core.info(`Closing Class Request: #${issue.number}`)
 
   // Create the authenticated Octokit client.
   const token: string = core.getInput('github_token', { required: true })
@@ -75,10 +75,10 @@ export async function close(
   await teams.deleteTeam(request)
 
   // Check if the issue is open.
-  if (payload.issue.state === 'open') {
+  if (issue.state === 'open') {
     // Add the closed comment to the request issue.
     await octokit.rest.issues.createComment({
-      issue_number: payload.issue.number,
+      issue_number: issue.number,
       owner: Common.OWNER,
       repo: Common.ISSUEOPS_REPO,
       body: issues.generateMessage(request)
@@ -88,16 +88,49 @@ export async function close(
     await octokit.rest.issues.update({
       owner: Common.OWNER,
       repo: Common.ISSUEOPS_REPO,
-      issue_number: payload.issue.number,
+      issue_number: issue.number,
       state: 'closed',
       state_reason: 'completed'
     })
   }
 
   // Comment on the issue with the summary.
-  await issues.complete(request, payload.issue)
+  await issues.complete(request, issue)
 
-  core.info(`Closed Class Request: #${payload.issue.number}`)
+  core.info(`Closed Class Request: #${issue.number}`)
+}
+
+/**
+ * Expires any open classes.
+ */
+export async function expire(): Promise<void> {
+  core.info('Expiring Open Classes')
+
+  // Create the authenticated Octokit client.
+  const token: string = core.getInput('github_token', { required: true })
+  const octokit = github.getOctokit(token)
+
+  // Get the list of open issues.
+  const response = await octokit.paginate(octokit.rest.issues.listForRepo, {
+    owner: Common.OWNER,
+    repo: Common.ISSUEOPS_REPO,
+    state: 'open',
+    labels: 'gh-intermediate-class'
+  })
+
+  // Parse each issue.
+  for (const issue of response) {
+    const request = issues.parse(
+      issue as IssuesEvent['issue'],
+      AllowedIssueAction.EXPIRE
+    )
+
+    // If the end date has passed, close the request.
+    if (request.endDate < new Date())
+      await close(request, issue as IssuesEvent['issue'])
+  }
+
+  core.info('Expired Open Classes')
 }
 
 /**

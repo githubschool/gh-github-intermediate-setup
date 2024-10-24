@@ -31266,6 +31266,8 @@ var AllowedIssueAction;
     AllowedIssueAction["CLOSE"] = "close";
     /** Create a Class */
     AllowedIssueAction["CREATE"] = "create";
+    /** Expire Classes */
+    AllowedIssueAction["EXPIRE"] = "expire";
 })(AllowedIssueAction || (AllowedIssueAction = {}));
 /** Allowed Action Types (Issue Comment Event) */
 var AllowedIssueCommentAction;
@@ -32030,8 +32032,11 @@ function generateMessage(request) {
 
       ### :warning: **IMPORTANT** :warning:
 
-      - The listed repositories will be automatically **deleted** on **${request.endDate.toISOString()}**.
+      - The listed repositories will be automatically **deleted** on **${request.endDate.toString()}**.
       - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.`);
+    }
+    else if (request.action === AllowedIssueAction.EXPIRE) {
+        return 'It looks like this request has expired. Access has been revoked for all attendees!';
     }
     else if (request.action === AllowedIssueCommentAction.REMOVE_ADMIN) {
         const payload = githubExports.context.payload;
@@ -32075,10 +32080,10 @@ async function addLabels(issue, labels) {
  * Creates a class from a request.
  *
  * @param request Class Request
- * @param payload Issue Payload
+ * @param issue Issue Payload
  */
-async function create(request, payload) {
-    coreExports.info(`Creating Class Request: #${payload.issue.number}`);
+async function create(request, issue) {
+    coreExports.info(`Creating Class Request: #${issue.number}`);
     // Check if the team already exists.
     if (await exists$1(request))
         throw new Error(`Team Already Exists: ${generateTeamName(request)}`);
@@ -32094,19 +32099,19 @@ async function create(request, payload) {
         await configure(request, user, repo);
     }
     // Add the provisioned label.
-    await addLabels(payload.issue, ['provisioned']);
+    await addLabels(issue, ['provisioned']);
     // Comment on the issue with the summary.
-    await complete(request, payload.issue);
-    coreExports.info(`Created Class Request: #${payload.issue.number}`);
+    await complete(request, issue);
+    coreExports.info(`Created Class Request: #${issue.number}`);
 }
 /**
  * Closes a class.
  *
  * @param request Class Request
- * @param payload Issue Payload
+ * @param issue Issue Payload
  */
-async function close(request, payload) {
-    coreExports.info(`Closing Class Request: #${payload.issue.number}`);
+async function close(request, issue) {
+    coreExports.info(`Closing Class Request: #${issue.number}`);
     // Create the authenticated Octokit client.
     const token = coreExports.getInput('github_token', { required: true });
     const octokit = githubExports.getOctokit(token);
@@ -32117,10 +32122,10 @@ async function close(request, payload) {
     // Delete the team.
     await deleteTeam(request);
     // Check if the issue is open.
-    if (payload.issue.state === 'open') {
+    if (issue.state === 'open') {
         // Add the closed comment to the request issue.
         await octokit.rest.issues.createComment({
-            issue_number: payload.issue.number,
+            issue_number: issue.number,
             owner: Common.OWNER,
             repo: Common.ISSUEOPS_REPO,
             body: generateMessage(request)
@@ -32129,14 +32134,38 @@ async function close(request, payload) {
         await octokit.rest.issues.update({
             owner: Common.OWNER,
             repo: Common.ISSUEOPS_REPO,
-            issue_number: payload.issue.number,
+            issue_number: issue.number,
             state: 'closed',
             state_reason: 'completed'
         });
     }
     // Comment on the issue with the summary.
-    await complete(request, payload.issue);
-    coreExports.info(`Closed Class Request: #${payload.issue.number}`);
+    await complete(request, issue);
+    coreExports.info(`Closed Class Request: #${issue.number}`);
+}
+/**
+ * Expires any open classes.
+ */
+async function expire() {
+    coreExports.info('Expiring Open Classes');
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Get the list of open issues.
+    const response = await octokit.paginate(octokit.rest.issues.listForRepo, {
+        owner: Common.OWNER,
+        repo: Common.ISSUEOPS_REPO,
+        state: 'open',
+        labels: 'gh-intermediate-class'
+    });
+    // Parse each issue.
+    for (const issue of response) {
+        const request = parse(issue, AllowedIssueAction.EXPIRE);
+        // If the end date has passed, close the request.
+        if (request.endDate < new Date())
+            await close(request, issue);
+    }
+    coreExports.info('Expired Open Classes');
 }
 /**
  * Adds an administrator to a class.
@@ -32348,6 +32377,9 @@ async function removeUser(request, payload) {
  * @returns Action to Take
  */
 function getAction(name, payload) {
+    // The expire action always takes precedence.
+    if (coreExports.getInput('expire') === 'true')
+        return AllowedIssueAction.EXPIRE;
     if (name === 'issues') {
         // Issue open/edit only supports the `create` action.
         if (payload.action === 'opened' || payload.action === 'edited')
@@ -32379,14 +32411,17 @@ async function run() {
     const action = getAction(eventName, payload);
     if (!action)
         return coreExports.info(`Ignoring Action: ${eventName} / ${payload.action}`);
+    // The expire action always takes precedence.
+    if (action === AllowedIssueAction.EXPIRE)
+        await expire();
     try {
         coreExports.info(`Processing Action: ${action}`);
         // Parse the issue to get the request.
         const request = parse(payload.issue, action);
         if (action === AllowedIssueAction.CREATE)
-            await create(request, payload);
+            await create(request, payload.issue);
         else if (action === AllowedIssueAction.CLOSE)
-            await close(request, payload);
+            await close(request, payload.issue);
         else if (action === AllowedIssueCommentAction.ADD_ADMIN)
             await addAdmin(request, payload);
         else if (action === AllowedIssueCommentAction.ADD_USER)

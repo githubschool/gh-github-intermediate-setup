@@ -328,8 +328,10 @@ export function generateMessage(request: ClassRequest): string {
 
       ### :warning: **IMPORTANT** :warning:
 
-      - The listed repositories will be automatically **deleted** on **${request.endDate.toISOString()}**.
+      - The listed repositories will be automatically **deleted** on **${request.endDate.toString()}**.
       - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.`)
+  } else if (request.action === AllowedIssueAction.EXPIRE) {
+    return 'It looks like this request has expired. Access has been revoked for all attendees!'
   } else if (request.action === AllowedIssueCommentAction.REMOVE_ADMIN) {
     const payload = github.context.payload as IssueCommentEvent
     const user = {

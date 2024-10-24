@@ -3,6 +3,10 @@ description: Automates management of GitHub Intermediate deliveries
 author: Nick Alteen <ncalteen@github.com>
 
 inputs:
+  expire:
+    description: Set to `true` to run the expiration logic
+    required: false
+    default: 'false'
   github_token:
     description: The GitHub token used to authenticate with the GitHub API
     required: true

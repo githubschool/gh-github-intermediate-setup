@@ -3,7 +3,9 @@ export enum AllowedIssueAction {
   /** Close a Class */
   CLOSE = 'close',
   /** Create a Class */
-  CREATE = 'create'
+  CREATE = 'create',
+  /** Expire Classes */
+  EXPIRE = 'expire'
 }
 
 /** Allowed Action Types (Issue Comment Event) */

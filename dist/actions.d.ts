@@ -4,16 +4,20 @@ import type { ClassRequest } from './types.js';
  * Creates a class from a request.
  *
  * @param request Class Request
- * @param payload Issue Payload
+ * @param issue Issue Payload
  */
-export declare function create(request: ClassRequest, payload: IssuesEvent): Promise<void>;
+export declare function create(request: ClassRequest, issue: IssuesEvent['issue']): Promise<void>;
 /**
  * Closes a class.
  *
  * @param request Class Request
- * @param payload Issue Payload
+ * @param issue Issue Payload
  */
-export declare function close(request: ClassRequest, payload: IssuesEvent): Promise<void>;
+export declare function close(request: ClassRequest, issue: IssuesEvent['issue']): Promise<void>;
+/**
+ * Expires any open classes.
+ */
+export declare function expire(): Promise<void>;
 /**
  * Adds an administrator to a class.
  *
