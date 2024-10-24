@@ -30,3 +30,10 @@ export declare function close(issue: IssueCommentEvent['issue'], request: ClassR
  * @returns Comment Body
  */
 export declare function generateMessage(request: ClassRequest): string;
+/**
+ * Adds one or more labels to an issue.
+ *
+ * @param issue Issue
+ * @param labels Labels
+ */
+export declare function addLabels(issue: IssueCommentEvent['issue'] | IssuesEvent['issue'], labels: string[]): Promise<void>;

@@ -350,3 +350,29 @@ export function generateMessage(request: ClassRequest): string {
 
   throw new Error(`Invalid Action: ${request.action}`)
 }
+
+/**
+ * Adds one or more labels to an issue.
+ *
+ * @param issue Issue
+ * @param labels Labels
+ */
+export async function addLabels(
+  issue: IssueCommentEvent['issue'] | IssuesEvent['issue'],
+  labels: string[]
+): Promise<void> {
+  core.info(`Adding Labels to Issue: #${issue.number}`)
+
+  // Create the authenticated Octokit client.
+  const token: string = core.getInput('github_token', { required: true })
+  const octokit = github.getOctokit(token)
+
+  await octokit.rest.issues.addLabels({
+    issue_number: issue.number,
+    owner: Common.OWNER,
+    repo: Common.ISSUEOPS_REPO,
+    labels
+  })
+
+  core.info(`Added Labels to Issue: #${issue.number}`)
+}

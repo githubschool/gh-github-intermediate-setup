@@ -18,6 +18,9 @@ jest.unstable_mockModule('@octokit/rest', async () => {
   }
 })
 
+const issues_addLabels: jest.SpiedFunction<
+  typeof import('../src/github/issues.js').addLabels
+> = jest.fn()
 const issues_complete: jest.SpiedFunction<
   typeof import('../src/github/issues.js').complete
 > = jest.fn()
@@ -63,6 +66,7 @@ const users_removeUsers: jest.SpiedFunction<
 
 jest.unstable_mockModule('../src/github/issues.js', () => {
   return {
+    addLabels: issues_addLabels,
     complete: issues_complete,
     generateMessage: issues_generateMessage
   }
@@ -207,6 +211,7 @@ describe('actions', () => {
 
       expect(teams_create).toHaveBeenCalled()
       expect(repos_create).toHaveBeenCalled()
+      expect(issues_addLabels).toHaveBeenCalled()
       expect(issues_complete).toHaveBeenCalled()
     })
   })

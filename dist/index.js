@@ -32051,6 +32051,25 @@ function generateMessage(request) {
     }
     throw new Error(`Invalid Action: ${request.action}`);
 }
+/**
+ * Adds one or more labels to an issue.
+ *
+ * @param issue Issue
+ * @param labels Labels
+ */
+async function addLabels(issue, labels) {
+    coreExports.info(`Adding Labels to Issue: #${issue.number}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    await octokit.rest.issues.addLabels({
+        issue_number: issue.number,
+        owner: Common.OWNER,
+        repo: Common.ISSUEOPS_REPO,
+        labels
+    });
+    coreExports.info(`Added Labels to Issue: #${issue.number}`);
+}
 
 /**
  * Creates a class from a request.
@@ -32074,6 +32093,8 @@ async function create(request, payload) {
         const repo = await create$1(request, user, team);
         await configure(request, user, repo);
     }
+    // Add the provisioned label.
+    await addLabels(payload.issue, ['provisioned']);
     // Comment on the issue with the summary.
     await complete(request, payload.issue);
     coreExports.info(`Created Class Request: #${payload.issue.number}`);

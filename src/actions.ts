@@ -40,6 +40,9 @@ export async function create(
     await repos.configure(request, user, repo, team)
   }
 
+  // Add the provisioned label.
+  await issues.addLabels(payload.issue, ['provisioned'])
+
   // Comment on the issue with the summary.
   await issues.complete(request, payload.issue)
 
