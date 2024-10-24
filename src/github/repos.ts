@@ -277,7 +277,7 @@ export async function configureLab3(
     // Get the file contents.
     const filename = `keyboard_input_manager.test.${i}`
     const contents = fs.readFileSync(
-      `../../lab-files/3-git-bisect/${filename}`,
+      `${process.env.GITHUB_WORKSPACE}/lab-files/3-git-bisect/${filename}`,
       'utf8'
     )
 
