@@ -31616,11 +31616,12 @@ async function configure(request, user, repo, team) {
     await configureLab9();
     await configureLab10();
     await configureLab11();
-    await execExports.exec('git', ['push'], options);
     coreExports.info(`Configured Attendee Repository: ${repo}`);
 }
 /**
  * Deletes all class repositories.
+ *
+ * TODO: This does not delete repos for invited users that did not accept.
  *
  * @param request Class Request
  */
@@ -31688,6 +31689,8 @@ async function configureLab3(options, octokit) {
         await execExports.exec('git', ['add', '.'], options);
         await execExports.exec('git', ['commit', '-m', `Adding unit tests ${i}`], options);
     }
+    await execExports.exec('git', ['push'], options);
+    await execExports.exec('git', ['checkout', 'main'], options);
     coreExports.info('Configured Lab 3: Git Bisect');
 }
 /**
@@ -31716,6 +31719,8 @@ async function configureLab4(options, octokit) {
     // Commit the changes.
     await execExports.exec('git', ['add', '.'], options);
     await execExports.exec('git', ['commit', '-m', 'Animate score update'], options);
+    await execExports.exec('git', ['push', '--set-upstream', 'origin', 'feature/animate-score'], options);
+    await execExports.exec('git', ['checkout', 'main'], options);
     coreExports.info('Configured Lab 4: Interactive Rebase');
 }
 /**
