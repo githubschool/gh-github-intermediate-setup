@@ -1,6 +1,6 @@
 name: Create a Class
 description: Create a GitHub Intermediate Class
-title: '[Create] <CUSTOMER_NAME>'
+title: '[Class] <CUSTOMER_NAME>'
 assignees:
   - ncalteen
 labels:
