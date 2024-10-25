@@ -31612,7 +31612,7 @@ async function configure(request, user, repo, team) {
     await configureLab5();
     await configureLab6();
     await configureLab7();
-    await configureLab8();
+    await configureLab8(options, octokit);
     await configureLab9();
     await configureLab10();
     await configureLab11();
@@ -31731,12 +31731,7 @@ async function configureLab4(options, octokit) {
  */
 async function configureLab5(options, octokit) {
     coreExports.info('Configuring Lab 5: Cherry-Pick');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
+    // Nothing needs to be done...
     coreExports.info('Configured Lab 5: Cherry-Pick');
 }
 /**
@@ -31747,12 +31742,7 @@ async function configureLab5(options, octokit) {
  */
 async function configureLab6(options, octokit) {
     coreExports.info('Configuring Lab 6: Protect Main');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
+    // Nothing needs to be done...
     coreExports.info('Configured Lab 6: Protect Main');
 }
 /**
@@ -31763,12 +31753,7 @@ async function configureLab6(options, octokit) {
  */
 async function configureLab7(options, octokit) {
     coreExports.info('Configuring Lab 7: GitHub Flow');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
+    // Nothing needs to be done...
     coreExports.info('Configured Lab 7: GitHub Flow');
 }
 /**
@@ -31779,12 +31764,60 @@ async function configureLab7(options, octokit) {
  */
 async function configureLab8(options, octokit) {
     coreExports.info('Configuring Lab 8: Merge Conflicts');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
+    // Create the PRs for the first merge conflict to resolve.
+    for (let i = 1; i < 3; i++) {
+        // Get the file contents.
+        const filename = `game_manager.${i}`;
+        const contents = fs.readFileSync(`${process.env.GITHUB_WORKSPACE}/lab-files/8-merge-conflicts/${filename}`, 'utf8');
+        // Checkout a feature branch.
+        await execExports.exec('git', ['checkout', '-b', `feature/tile-value-${i}`], options);
+        // Remove the old file if it exists.
+        await execExports.exec('rm', ['src/game_manager.ts'], options);
+        // Write the new file.
+        fs.writeFileSync(`${options.cwd}/src/game_manager.ts`, contents, 'utf8');
+        // Commit the changes.
+        await execExports.exec('git', ['add', '.'], options);
+        await execExports.exec('git', ['commit', '-m', `Increase rate of tiles with value 4`], options);
+        // Push the changes.
+        await execExports.exec('git', ['push', '--set-upstream', 'origin', `feature/tile-value-${i}`], options);
+        await execExports.exec('git', ['checkout', 'main'], options);
+        // Create the pull request.
+        await octokit.rest.pulls.create({
+            owner: Common.OWNER,
+            repo: options.cwd.split('/').pop(),
+            head: `feature/tile-value-${i}`,
+            base: 'main',
+            title: 'Increase rate of tiles with value 4',
+            body: 'This PR increases the rate at which random tiles are created with a value of 4, making the game easier.'
+        });
+    }
+    // Create the PRs for the second merge conflict to resolve.
+    for (let i = 3; i < 5; i++) {
+        // Get the file contents.
+        const filename = `game_manager.${i}`;
+        const contents = fs.readFileSync(`${process.env.GITHUB_WORKSPACE}/lab-files/8-merge-conflicts/${filename}`, 'utf8');
+        // Checkout a feature branch.
+        await execExports.exec('git', ['checkout', '-b', `feature/start-tiles-${i}`], options);
+        // Remove the old file if it exists.
+        await execExports.exec('rm', ['src/game_manager.ts'], options);
+        // Write the new file.
+        fs.writeFileSync(`${options.cwd}/src/game_manager.ts`, contents, 'utf8');
+        // Commit the changes.
+        await execExports.exec('git', ['add', '.'], options);
+        await execExports.exec('git', ['commit', '-m', `Increase the number of starting tiles`], options);
+        // Push the changes.
+        await execExports.exec('git', ['push', '--set-upstream', 'origin', `feature/start-tiles-${i}`], options);
+        await execExports.exec('git', ['checkout', 'main'], options);
+        // Create the pull request.
+        await octokit.rest.pulls.create({
+            owner: Common.OWNER,
+            repo: options.cwd.split('/').pop(),
+            head: `feature/start-tiles-${i}`,
+            base: 'main',
+            title: 'Increase the number of starting tiles',
+            body: 'This PR increases the number of starting tiles in new games, so that players can get started quickly.'
+        });
+    }
     coreExports.info('Configured Lab 8: Merge Conflicts');
 }
 /**
@@ -31795,12 +31828,7 @@ async function configureLab8(options, octokit) {
  */
 async function configureLab9(options, octokit) {
     coreExports.info('Configuring Lab 9: Run a Workflow');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
+    // Nothing needs to be done...
     coreExports.info('Configured Lab 9: Run a Workflow');
 }
 /**
@@ -31811,12 +31839,7 @@ async function configureLab9(options, octokit) {
  */
 async function configureLab10(options, octokit) {
     coreExports.info('Configuring Lab 10: Create a Release');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
+    // Nothing needs to be done...
     coreExports.info('Configured Lab 10: Create a Release');
 }
 /**
