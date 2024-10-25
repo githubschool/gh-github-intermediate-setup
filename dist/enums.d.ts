@@ -21,7 +21,7 @@ export declare enum AllowedIssueCommentAction {
 /** Fast Track Bot (GitHub App) */
 export declare enum Bot {
     /** Email Address */
-    EMAIL = "153844374+gh-intermediate-issueops[bot]@users.noreply.github.com",
+    EMAIL = "185417500+gh-intermediate-issueops[bot]@users.noreply.github.com",
     /** User Name */
     USER = "gh-intermediate-issueops[bot]"
 }

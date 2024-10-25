@@ -31285,7 +31285,7 @@ var AllowedIssueCommentAction;
 var Bot;
 (function (Bot) {
     /** Email Address */
-    Bot["EMAIL"] = "153844374+gh-intermediate-issueops[bot]@users.noreply.github.com";
+    Bot["EMAIL"] = "185417500+gh-intermediate-issueops[bot]@users.noreply.github.com";
     /** User Name */
     Bot["USER"] = "gh-intermediate-issueops[bot]";
 })(Bot || (Bot = {}));
