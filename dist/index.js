@@ -31303,177 +31303,6 @@ var Common;
 var execExports = requireExec();
 
 /**
- * Generates the team name for this class.
- *
- * @param request Class Request
- */
-function generateTeamName(request) {
-    return `gh-int-${request.customerAbbr.toLowerCase()}`;
-}
-/**
- * Checks if the team exists.
- *
- * @param request Class Request
- * @returns True if Team Exists
- */
-async function exists$1(request) {
-    coreExports.info('Checking if Class Team Exists');
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    try {
-        await octokit.rest.teams.getByName({
-            org: Common.OWNER,
-            team_slug: generateTeamName(request)
-        });
-    }
-    catch (error) {
-        coreExports.info(`Error: ${error.status}`);
-        if (error.status === 404)
-            return false;
-    }
-    coreExports.info(`Class Team Exists: ${generateTeamName(request)}`);
-    return true;
-}
-/**
- * Gets the team.
- *
- * @param request Class Request
- * @returns Team Information
- */
-async function get(request) {
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    const response = await octokit.rest.teams.getByName({
-        org: Common.OWNER,
-        team_slug: generateTeamName(request)
-    });
-    return {
-        slug: response.data.slug,
-        id: response.data.id
-    };
-}
-/**
- * Creates the team for this class.
- *
- * @param request Class Request
- * @returns Team Information
- */
-async function create$2(request) {
-    coreExports.info('Creating Class Team');
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    // Create the team. Add the class administrators as maintainers.
-    const response = await octokit.rest.teams.create({
-        org: Common.OWNER,
-        name: generateTeamName(request),
-        maintainers: request.administrators.map((user) => {
-            return user.handle;
-        })
-    });
-    // Add the users to the team.
-    for (const user of request.attendees)
-        await addUser$1(request, user, 'member');
-    coreExports.info(`Created Class Team: ${generateTeamName(request)}`);
-    return { slug: response.data.slug, id: response.data.id };
-}
-/**
- * Adds a member to the team.
- *
- * @param request Class Request
- * @param user User to Add
- * @param role Role to Assign
- */
-async function addUser$1(request, user, role = 'member') {
-    coreExports.info(`Adding User to Class Team: ${user.handle}`);
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    // Add the user to the team.
-    await octokit.rest.teams.addOrUpdateMembershipForUserInOrg({
-        org: Common.OWNER,
-        team_slug: generateTeamName(request),
-        username: user.handle,
-        role
-    });
-    coreExports.info(`Added User to Class Team: ${user.handle}`);
-}
-/**
- * Removes a member to the team.
- *
- * @param request Class Request
- * @param user User to Remove
- */
-async function removeUser$1(request, user) {
-    coreExports.info(`Removing User from Class Team: ${user.handle}`);
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    try {
-        // Check if the user is a member (they must have accepted the invitation).
-        const membership = await octokit.rest.teams.getMembershipForUserInOrg({
-            org: Common.OWNER,
-            team_slug: generateTeamName(request),
-            username: user.handle
-        });
-        // Remove the user from the team.
-        if (membership.data.state === 'active')
-            await octokit.rest.teams.removeMembershipForUserInOrg({
-                org: Common.OWNER,
-                team_slug: generateTeamName(request),
-                username: user.handle
-            });
-    }
-    catch (error) {
-        // If the user could not be found, they're not in the organization.
-        if (error.status !== 404)
-            throw error;
-    }
-    coreExports.info(`Removed User from Class Team: ${user.handle}`);
-}
-/**
- * Deletes the team.
- *
- * @param request Class Request
- */
-async function deleteTeam(request) {
-    coreExports.info(`Deleting Team: ${generateTeamName(request)}`);
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    // If the team exists, delete it.
-    if (await exists$1(request))
-        await octokit.rest.teams.deleteInOrg({
-            org: Common.OWNER,
-            team_slug: generateTeamName(request)
-        });
-    coreExports.info(`Deleted Team: ${generateTeamName(request)}`);
-}
-/**
- * Gets the members of the team.
- *
- * @param request Class Request
- * @returns Team Members
- */
-async function getMembers(request) {
-    coreExports.info(`Getting Members of Team: ${generateTeamName(request)}`);
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    // Get the members of the team.
-    const response = await octokit.rest.teams.listMembersInOrg({
-        org: Common.OWNER,
-        team_slug: generateTeamName(request)
-    });
-    coreExports.info(`Got Members of Team: ${generateTeamName(request)}`);
-    return response.data.map((user) => {
-        return { handle: user.login, email: user.email };
-    });
-}
-
-/**
  * Generates the repository name for this class and user.
  *
  * @param request Class Request
@@ -31489,7 +31318,7 @@ function generateRepoName(request, user) {
  * @param team Team
  * @returns Repository Name
  */
-async function create$1(request, user, team) {
+async function create$2(request, user, team) {
     coreExports.info(`Creating Attendee Repository: ${generateRepoName(request, user)}`);
     // Create the authenticated Octokit client.
     const token = coreExports.getInput('github_token', { required: true });
@@ -31521,7 +31350,7 @@ async function create$1(request, user, team) {
  * @param user User
  * @returns True if the Repository Exists
  */
-async function exists(request, user) {
+async function exists$1(request, user) {
     // Create the authenticated Octokit client.
     const token = coreExports.getInput('github_token', { required: true });
     const octokit = githubExports.getOctokit(token);
@@ -31621,8 +31450,6 @@ async function configure(request, user, repo, team) {
 /**
  * Deletes all class repositories.
  *
- * TODO: This does not delete repos for invited users that did not accept.
- *
  * @param request Class Request
  */
 async function deleteRepositories(request) {
@@ -31630,16 +31457,18 @@ async function deleteRepositories(request) {
     // Create the authenticated Octokit client.
     const token = coreExports.getInput('github_token', { required: true });
     const octokit = githubExports.getOctokit(token);
-    // Get the team members.
-    const members = await getMembers(request);
+    // Get the repositories for this request.
+    const prefix = `gh-int-${request.customerAbbr.toLowerCase()}-`;
+    const response = await octokit.rest.search.repos({
+        q: `org:${Common.OWNER} ${prefix}`
+    });
     // Delete the repositories for each member.
-    for (const member of members) {
-        coreExports.info(`Deleting Repository: ${generateRepoName(request, member)}`);
-        if (await exists(request, member))
-            await octokit.rest.repos.delete({
-                owner: Common.OWNER,
-                repo: generateRepoName(request, member)
-            });
+    for (const repo of response.data.items) {
+        coreExports.info(`Deleting Repository: ${repo.name}`);
+        await octokit.rest.repos.delete({
+            owner: Common.OWNER,
+            repo: repo.name
+        });
     }
     coreExports.info(`Deleted Repositories: ${request.customerAbbr}`);
 }
@@ -31857,6 +31686,177 @@ async function configureLab11(options, octokit) {
     // core.info('Pushing changes')
     // await exec.exec('git', ['push'], options)
     coreExports.info('Configured Lab 11: Deploy to an Environment');
+}
+
+/**
+ * Generates the team name for this class.
+ *
+ * @param request Class Request
+ */
+function generateTeamName(request) {
+    return `gh-int-${request.customerAbbr.toLowerCase()}`;
+}
+/**
+ * Checks if the team exists.
+ *
+ * @param request Class Request
+ * @returns True if Team Exists
+ */
+async function exists(request) {
+    coreExports.info('Checking if Class Team Exists');
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    try {
+        await octokit.rest.teams.getByName({
+            org: Common.OWNER,
+            team_slug: generateTeamName(request)
+        });
+    }
+    catch (error) {
+        coreExports.info(`Error: ${error.status}`);
+        if (error.status === 404)
+            return false;
+    }
+    coreExports.info(`Class Team Exists: ${generateTeamName(request)}`);
+    return true;
+}
+/**
+ * Gets the team.
+ *
+ * @param request Class Request
+ * @returns Team Information
+ */
+async function get(request) {
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    const response = await octokit.rest.teams.getByName({
+        org: Common.OWNER,
+        team_slug: generateTeamName(request)
+    });
+    return {
+        slug: response.data.slug,
+        id: response.data.id
+    };
+}
+/**
+ * Creates the team for this class.
+ *
+ * @param request Class Request
+ * @returns Team Information
+ */
+async function create$1(request) {
+    coreExports.info('Creating Class Team');
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Create the team. Add the class administrators as maintainers.
+    const response = await octokit.rest.teams.create({
+        org: Common.OWNER,
+        name: generateTeamName(request),
+        maintainers: request.administrators.map((user) => {
+            return user.handle;
+        })
+    });
+    // Add the users to the team.
+    for (const user of request.attendees)
+        await addUser$1(request, user, 'member');
+    coreExports.info(`Created Class Team: ${generateTeamName(request)}`);
+    return { slug: response.data.slug, id: response.data.id };
+}
+/**
+ * Adds a member to the team.
+ *
+ * @param request Class Request
+ * @param user User to Add
+ * @param role Role to Assign
+ */
+async function addUser$1(request, user, role = 'member') {
+    coreExports.info(`Adding User to Class Team: ${user.handle}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Add the user to the team.
+    await octokit.rest.teams.addOrUpdateMembershipForUserInOrg({
+        org: Common.OWNER,
+        team_slug: generateTeamName(request),
+        username: user.handle,
+        role
+    });
+    coreExports.info(`Added User to Class Team: ${user.handle}`);
+}
+/**
+ * Removes a member to the team.
+ *
+ * @param request Class Request
+ * @param user User to Remove
+ */
+async function removeUser$1(request, user) {
+    coreExports.info(`Removing User from Class Team: ${user.handle}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    try {
+        // Check if the user is a member (they must have accepted the invitation).
+        const membership = await octokit.rest.teams.getMembershipForUserInOrg({
+            org: Common.OWNER,
+            team_slug: generateTeamName(request),
+            username: user.handle
+        });
+        // Remove the user from the team.
+        if (membership.data.state === 'active')
+            await octokit.rest.teams.removeMembershipForUserInOrg({
+                org: Common.OWNER,
+                team_slug: generateTeamName(request),
+                username: user.handle
+            });
+    }
+    catch (error) {
+        // If the user could not be found, they're not in the organization.
+        if (error.status !== 404)
+            throw error;
+    }
+    coreExports.info(`Removed User from Class Team: ${user.handle}`);
+}
+/**
+ * Deletes the team.
+ *
+ * @param request Class Request
+ */
+async function deleteTeam(request) {
+    coreExports.info(`Deleting Team: ${generateTeamName(request)}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // If the team exists, delete it.
+    if (await exists(request))
+        await octokit.rest.teams.deleteInOrg({
+            org: Common.OWNER,
+            team_slug: generateTeamName(request)
+        });
+    coreExports.info(`Deleted Team: ${generateTeamName(request)}`);
+}
+/**
+ * Gets the members of the team.
+ *
+ * @param request Class Request
+ * @returns Team Members
+ */
+async function getMembers(request) {
+    coreExports.info(`Getting Members of Team: ${generateTeamName(request)}`);
+    // Create the authenticated Octokit client.
+    const token = coreExports.getInput('github_token', { required: true });
+    const octokit = githubExports.getOctokit(token);
+    // Get the members of the team.
+    const response = await octokit.rest.teams.listMembersInOrg({
+        org: Common.OWNER,
+        team_slug: generateTeamName(request)
+    });
+    coreExports.info(`Got Members of Team: ${generateTeamName(request)}`);
+    return response.data.map((user) => {
+        return { handle: user.login, email: user.email };
+    });
 }
 
 /**
@@ -32148,17 +32148,17 @@ async function addLabels(issue, labels) {
 async function create(request, issue) {
     coreExports.info(`Creating Class Request: #${issue.number}`);
     // Check if the team already exists.
-    if (await exists$1(request))
+    if (await exists(request))
         throw new Error(`Team Already Exists: ${generateTeamName(request)}`);
     // Check if any user repositories already exist.
     for (const user of request.attendees)
-        if (await exists(request, user))
+        if (await exists$1(request, user))
             throw new Error(`Repository Already Exists: ${generateRepoName(request, user)}`);
     // Create the team and add the users.
-    const team = await create$2(request);
+    const team = await create$1(request);
     // Create and configure the user repositories.
     for (const user of request.attendees) {
-        const repo = await create$1(request, user, team);
+        const repo = await create$2(request, user, team);
         // Sleep 5s to wait for the repo to be created and initial commit pushed.
         if (process.env.NODE_ENV !== 'test')
             await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -32295,7 +32295,7 @@ async function addUser(request, payload) {
     // Add the user to the team.
     await addUser$1(request, user);
     // Create and configure their repository.
-    const repo = await create$1(request, user, team);
+    const repo = await create$2(request, user, team);
     await configure(request, user, repo);
     // Comment on the issue with the summary.
     await complete(request, payload.issue);
@@ -32425,7 +32425,7 @@ async function removeUser(request, payload) {
         }
     }
     // Delete the user repository.
-    if (await exists(request, user))
+    if (await exists$1(request, user))
         await octokit.rest.repos.delete({
             owner: Common.OWNER,
             repo: generateRepoName(request, user)

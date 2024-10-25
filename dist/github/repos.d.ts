@@ -36,8 +36,6 @@ export declare function configure(request: ClassRequest, user: User, repo: strin
 /**
  * Deletes all class repositories.
  *
- * TODO: This does not delete repos for invited users that did not accept.
- *
  * @param request Class Request
  */
 export declare function deleteRepositories(request: ClassRequest): Promise<void>;

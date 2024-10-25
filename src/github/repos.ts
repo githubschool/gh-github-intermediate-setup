@@ -6,7 +6,6 @@ import type { GitHub } from '@actions/github/lib/utils.js'
 import fs from 'fs'
 import { Bot, Common } from '../enums.js'
 import type { ClassRequest, Team, User } from '../types.js'
-import * as teams from './teams.js'
 
 /**
  * Generates the repository name for this class and user.
@@ -196,8 +195,6 @@ export async function configure(
 /**
  * Deletes all class repositories.
  *
- * TODO: This does not delete repos for invited users that did not accept.
- *
  * @param request Class Request
  */
 export async function deleteRepositories(request: ClassRequest): Promise<void> {
@@ -207,18 +204,21 @@ export async function deleteRepositories(request: ClassRequest): Promise<void> {
   const token: string = core.getInput('github_token', { required: true })
   const octokit = github.getOctokit(token)
 
-  // Get the team members.
-  const members = await teams.getMembers(request)
+  // Get the repositories for this request.
+  const prefix = `gh-int-${request.customerAbbr.toLowerCase()}-`
+
+  const response = await octokit.rest.search.repos({
+    q: `org:${Common.OWNER} ${prefix}`
+  })
 
   // Delete the repositories for each member.
-  for (const member of members) {
-    core.info(`Deleting Repository: ${generateRepoName(request, member)}`)
+  for (const repo of response.data.items) {
+    core.info(`Deleting Repository: ${repo.name}`)
 
-    if (await exists(request, member))
-      await octokit.rest.repos.delete({
-        owner: Common.OWNER,
-        repo: generateRepoName(request, member)
-      })
+    await octokit.rest.repos.delete({
+      owner: Common.OWNER,
+      repo: repo.name
+    })
   }
 
   core.info(`Deleted Repositories: ${request.customerAbbr}`)
