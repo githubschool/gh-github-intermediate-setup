@@ -189,6 +189,10 @@ describe('actions', () => {
 
     it('Creates a Class', async () => {
       teams_exists.mockResolvedValue(false)
+      teams_create.mockResolvedValue({
+        id: 1,
+        slug: 'gh-int-na1-ncalteen-testuser'
+      })
       repos_exists.mockResolvedValue(false)
       teams_generateTeamName.mockReturnValue('gh-int-na1')
       repos_generateRepoName.mockReturnValue('gh-int-na1-ncalteen-testuser')

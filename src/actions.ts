@@ -33,6 +33,7 @@ export async function create(
 
   // Create the team and add the users.
   const team = await teams.create(request)
+  request.team = team.slug
 
   // Create and configure the user repositories.
   for (const user of request.attendees) {

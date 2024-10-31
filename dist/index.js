@@ -32156,6 +32156,7 @@ async function create(request, issue) {
             throw new Error(`Repository Already Exists: ${generateRepoName(request, user)}`);
     // Create the team and add the users.
     const team = await create$1(request);
+    request.team = team.slug;
     // Create and configure the user repositories.
     for (const user of request.attendees) {
         const repo = await create$2(request, user, team);
