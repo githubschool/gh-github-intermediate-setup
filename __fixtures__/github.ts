@@ -3,6 +3,7 @@ import * as octokit from './octokit.js'
 export const getOctokit = () => octokit
 
 export const context = {
+  actor: 'test',
   eventName: 'issues',
   payload: {
     action: 'opened',

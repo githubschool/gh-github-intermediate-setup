@@ -1,7 +1,10 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import type { IssueCommentEvent, IssuesEvent } from '@octokit/webhooks-types'
+import fs from 'fs'
+import path from 'path'
 import { dedent } from 'ts-dedent'
+import yaml from 'yaml'
 import * as actions from './actions.js'
 import {
   AllowedIssueAction,
@@ -15,6 +18,21 @@ export async function run(): Promise<void> {
   // Get needed GitHub context information.
   const eventName = github.context.eventName
   const payload = github.context.payload as IssueCommentEvent | IssuesEvent
+
+  // Check if the user is authorized to use this action.
+  const authorizedUsers = yaml.parse(
+    fs.readFileSync(
+      path.resolve(process.env.GITHUB_WORKSPACE!, 'instructors.yml'),
+      'utf8'
+    )
+  ).instructors
+
+  // Check if the user is authorized to use this action.
+  const user = github.context.actor
+  if (!authorizedUsers.includes(user))
+    return core.setFailed(
+      `You are not authorized to use this action. Please contact an instructor.`
+    )
 
   // Decide what action to take based on issue state and comment text.
   const action = events.getAction(eventName, payload)

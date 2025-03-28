@@ -1,7 +1,7 @@
 {
   "name": "gh-github-intermediate-issueops",
   "description": "GitHub Intermediate Offering: IssueOps Automation",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "author": "Nick Alteen <ncalteen@github.com>",
   "private": true,
   "type": "module",
@@ -24,6 +24,7 @@
     "format:write": "npx prettier --write .",
     "format:check": "npx prettier --check .",
     "lint": "npx eslint . -c .eslintrc.yml",
+    "local-action": "npx @github/local-action . src/main.ts .env",
     "package": "npx rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
     "test": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest",
     "all": "npm run format:write && npm run lint && npm run test && npm run coverage && npm run package"

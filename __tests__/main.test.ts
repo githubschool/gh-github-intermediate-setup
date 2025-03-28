@@ -1,5 +1,7 @@
 import { jest } from '@jest/globals'
+import { dedent } from 'ts-dedent'
 import * as core from '../__fixtures__/core.js'
+import * as fs from '../__fixtures__/fs.js'
 import * as github from '../__fixtures__/github.js'
 import * as octokit from '../__fixtures__/octokit.js'
 import { AllowedIssueAction, AllowedIssueCommentAction } from '../src/enums.js'
@@ -17,6 +19,7 @@ jest.unstable_mockModule('@octokit/rest', async () => {
     Octokit
   }
 })
+jest.unstable_mockModule('fs', () => fs)
 
 const events_getAction: jest.SpiedFunction<
   typeof import('../src/events.js').getAction
@@ -74,6 +77,14 @@ const { Octokit } = await import('@octokit/rest')
 const mocktokit = jest.mocked(new Octokit())
 
 describe('main', () => {
+  beforeEach(() => {
+    process.env.GITHUB_WORKSPACE = '.'
+
+    fs.readFileSync.mockReturnValue(dedent`instructors:
+
+    - test`)
+  })
+
   afterEach(() => {
     jest.resetAllMocks()
   })
