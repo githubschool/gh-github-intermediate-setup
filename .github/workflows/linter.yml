@@ -10,17 +10,17 @@ concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  issues: write
+  packages: read
+  pull-requests: write
+  statuses: write
+
 jobs:
   lint:
     name: Lint Codebase
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      issues: write
-      packages: read
-      pull-requests: write
-      statuses: write
 
     steps:
       # Checkout the repository.
