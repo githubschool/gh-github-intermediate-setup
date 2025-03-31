@@ -9,7 +9,7 @@ const config = {
     esModule: true,
     dir: 'dist',
     format: 'es',
-    sourcemap: true
+    sourceMap: false
   },
   plugins: [
     typescript(),
