@@ -39,7 +39,7 @@
     "@actions/github": "^6.0.0",
     "@octokit/rest": "^21.0.2",
     "ts-dedent": "^2.2.0",
-    "yaml": "^2.6.0"
+    "yaml": "^2.7.1"
   },
   "devDependencies": {
     "@github/local-action": "^2.1.3",
