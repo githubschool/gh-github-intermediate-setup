@@ -8,8 +8,7 @@ const config = {
   output: {
     esModule: true,
     dir: 'dist',
-    format: 'es',
-    sourcemap: true
+    format: 'es'
   },
   plugins: [
     typescript(),
