@@ -39666,6 +39666,9 @@ async function addUser(request, payload) {
     await addUser$1(request, user);
     // Create and configure their repository.
     const repo = await create$2(request, user, team);
+    // Sleep 5s to wait for the repo to be created and initial commit pushed.
+    if (process.env.NODE_ENV !== 'test')
+        await new Promise((resolve) => setTimeout(resolve, 5000));
     await configure(request, user, repo);
     // Comment on the issue with the summary.
     await complete(request, payload.issue);
