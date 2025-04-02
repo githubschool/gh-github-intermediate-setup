@@ -39491,28 +39491,28 @@ function generateMessage(request) {
     else if (request.action === AllowedIssueAction.CREATE) {
         return dedent(`:ballot_box_with_check: **Class Request Complete**
     
-      Your request has been provisioned! The following repositories have been created for each attendee:
+    Your request has been provisioned! The following repositories have been created for each attendee:
 
-      | Attendee | Repository |
-      |----------|------------|
-      ${request.attendees
+    | Attendee | Repository |
+    |----------|------------|
+    ${request.attendees
             .map((attendee) => `| ${attendee.handle} | [\`${Common.OWNER}/${generateRepoName(request, attendee)}\`](https://github.com/${Common.OWNER}/${generateRepoName(request, attendee)}) |`)
             .join('\n')}
 
-      The \`${Common.OWNER}/${request.team}\` team has been granted access to each repository.
+    The \`${Common.OWNER}/${request.team}\` team has been granted access to each repository.
 
-      ### :warning: **IMPORTANT** :warning:
+    ### :warning: **IMPORTANT** :warning:
 
-      - The listed repositories will be automatically **deleted** on **${request.endDate.toString()}**.
-      - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.
+    - The listed repositories will be automatically **deleted** on **${request.endDate.toString()}**.
+    - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.
 
-      If you need to add/remove users or admins, use the comment commands below.
+    If you need to add/remove users, use the comment commands below.
 
-      | Command                        | Description                     |
-      |--------------------------------|---------------------------------|
-      | \`.add-user handle,email\`     | Add a user to the class.        |
-      | \`.remove-user handle,email\`  | Remove a user from the class.   |
-      `);
+    | Command                        | Description                     |
+    |--------------------------------|---------------------------------|
+    | \`.add-user handle,email\`     | Add a user to the class.        |
+    | \`.remove-user handle,email\`  | Remove a user from the class.   |
+    `);
     }
     else if (request.action === AllowedIssueAction.EXPIRE) {
         return 'It looks like this request has expired. Access has been revoked for all attendees!';
