@@ -58,7 +58,6 @@ body:
       placeholder: |
         ncalteen,ncalteen@github.com
         octocat,octocat@github.com
-      render: CSV
     validations:
       required: true
   - type: textarea
@@ -69,6 +68,5 @@ body:
       placeholder: |
         ncalteen,ncalteen@github.com
         octocat,octocat@github.com
-      render: CSV
     validations:
       required: true
