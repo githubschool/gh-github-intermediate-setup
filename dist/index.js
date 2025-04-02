@@ -39435,6 +39435,9 @@ function parse(issue, action) {
         throw new Error('Start Date Not Found');
     if (!endDate)
         throw new Error('End Date Not Found');
+    for (const attendee of attendees)
+        if (attendee.handle.includes('_'))
+            throw new Error(`Invalid Attendee: ${attendee.handle} (Enterprise Managed Users are not supported)`);
     coreExports.info('Creating Class Request');
     const request = {
         action,
