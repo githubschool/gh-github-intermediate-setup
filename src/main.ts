@@ -29,10 +29,23 @@ export async function run(): Promise<void> {
 
   // Check if the user is authorized to use this action.
   const user = github.context.actor
-  if (!authorizedUsers.includes(user))
-    return core.setFailed(
-      `You are not authorized to use this action. Please contact an instructor.`
-    )
+  if (!authorizedUsers.includes(user)) {
+    // Comment on the issue to let the user know they are not authorized.
+    const token: string = core.getInput('github_token', { required: true })
+    const octokit = github.getOctokit(token)
+
+    // Add the error comment to the request issue.
+    await octokit.rest.issues.createComment({
+      issue_number: (payload as IssueCommentEvent).issue.number,
+      owner: Common.OWNER,
+      repo: Common.ISSUEOPS_REPO,
+      body: dedent(
+        `Sorry @${github.context.actor}! You are not authorized to use this action. Please contact an instructor.`
+      )
+    })
+
+    return
+  }
 
   // Decide what action to take based on issue state and comment text.
   const action = events.getAction(eventName, payload)

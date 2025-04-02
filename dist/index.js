@@ -39785,8 +39785,19 @@ async function run() {
     const authorizedUsers = YAML.parse(fs.readFileSync(require$$1$4.resolve(process.env.GITHUB_WORKSPACE, 'instructors.yml'), 'utf8')).instructors;
     // Check if the user is authorized to use this action.
     const user = githubExports.context.actor;
-    if (!authorizedUsers.includes(user))
-        return coreExports.setFailed(`You are not authorized to use this action. Please contact an instructor.`);
+    if (!authorizedUsers.includes(user)) {
+        // Comment on the issue to let the user know they are not authorized.
+        const token = coreExports.getInput('github_token', { required: true });
+        const octokit = githubExports.getOctokit(token);
+        // Add the error comment to the request issue.
+        await octokit.rest.issues.createComment({
+            issue_number: payload.issue.number,
+            owner: Common.OWNER,
+            repo: Common.ISSUEOPS_REPO,
+            body: dedent(`Sorry @${githubExports.context.actor}! You are not authorized to use this action. Please contact an instructor.`)
+        });
+        return;
+    }
     // Decide what action to take based on issue state and comment text.
     const action = getAction(eventName, payload);
     if (!action)

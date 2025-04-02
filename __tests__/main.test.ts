@@ -98,9 +98,8 @@ describe('main', () => {
     })
 
     await main.run()
-    expect(core.setFailed).toHaveBeenCalledWith(
-      'You are not authorized to use this action. Please contact an instructor.'
-    )
+
+    expect(mocktokit.rest.issues.createComment).toHaveBeenCalled()
   })
 
   it('Skips Invalid Actions', async () => {
