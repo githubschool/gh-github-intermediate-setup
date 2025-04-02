@@ -21,6 +21,7 @@ export function generateRepoName(request: ClassRequest, user: User): string {
  * Creates a repository for an attendee.
  *
  * @param request Class Request
+ * @param user User
  * @param team Team
  * @returns Repository Name
  */
@@ -569,13 +570,7 @@ export async function configureLab11(
 ): Promise<void> {
   core.info('Configuring Lab 11: Deploy to an Environment')
 
-  // // Commit the updates.
-  // core.info('Committing Changes')
-  // await exec.exec('git', ['add', '.'], options)
-  // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-
-  // core.info('Pushing changes')
-  // await exec.exec('git', ['push'], options)
+  // Nothing needs to be done...
 
   core.info('Configured Lab 11: Deploy to an Environment')
 }

@@ -57,12 +57,8 @@ export async function run(): Promise<void> {
       await actions.create(request, payload.issue)
     else if (action === AllowedIssueAction.CLOSE)
       await actions.close(request, payload.issue)
-    else if (action === AllowedIssueCommentAction.ADD_ADMIN)
-      await actions.addAdmin(request, payload as IssueCommentEvent)
     else if (action === AllowedIssueCommentAction.ADD_USER)
       await actions.addUser(request, payload as IssueCommentEvent)
-    else if (action === AllowedIssueCommentAction.REMOVE_ADMIN)
-      await actions.removeAdmin(request, payload as IssueCommentEvent)
     else if (action === AllowedIssueCommentAction.REMOVE_USER)
       await actions.removeUser(request, payload as IssueCommentEvent)
   } catch (error: any) {

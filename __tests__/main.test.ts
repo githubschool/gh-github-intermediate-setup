@@ -21,6 +21,13 @@ jest.unstable_mockModule('@octokit/rest', async () => {
 })
 jest.unstable_mockModule('fs', () => fs)
 
+const yaml_parse: jest.SpiedFunction<typeof import('yaml').parse> = jest.fn()
+jest.unstable_mockModule('yaml', () => ({
+  default: {
+    parse: yaml_parse
+  }
+}))
+
 const events_getAction: jest.SpiedFunction<
   typeof import('../src/events.js').getAction
 > = jest.fn()
@@ -36,14 +43,8 @@ const actions_close: jest.SpiedFunction<
 const actions_expire: jest.SpiedFunction<
   typeof import('../src/actions.js').expire
 > = jest.fn()
-const actions_addAdmin: jest.SpiedFunction<
-  typeof import('../src/actions.js').addAdmin
-> = jest.fn()
 const actions_addUser: jest.SpiedFunction<
   typeof import('../src/actions.js').addUser
-> = jest.fn()
-const actions_removeAdmin: jest.SpiedFunction<
-  typeof import('../src/actions.js').removeAdmin
 > = jest.fn()
 const actions_removeUser: jest.SpiedFunction<
   typeof import('../src/actions.js').removeUser
@@ -64,9 +65,7 @@ jest.unstable_mockModule('../src/actions.js', () => {
     create: actions_create,
     close: actions_close,
     expire: actions_expire,
-    addAdmin: actions_addAdmin,
     addUser: actions_addUser,
-    removeAdmin: actions_removeAdmin,
     removeUser: actions_removeUser
   }
 })
@@ -83,10 +82,25 @@ describe('main', () => {
     fs.readFileSync.mockReturnValue(dedent`instructors:
 
     - test`)
+
+    yaml_parse.mockReturnValue({
+      instructors: github.context.actor
+    })
   })
 
   afterEach(() => {
     jest.resetAllMocks()
+  })
+
+  it('Fails if the User is not an Instructor', async () => {
+    yaml_parse.mockReturnValue({
+      instructors: ['not-an-instructor']
+    })
+
+    await main.run()
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'You are not authorized to use this action. Please contact an instructor.'
+    )
   })
 
   it('Skips Invalid Actions', async () => {
@@ -96,9 +110,7 @@ describe('main', () => {
 
     expect(actions_create).not.toHaveBeenCalled()
     expect(actions_close).not.toHaveBeenCalled()
-    expect(actions_addAdmin).not.toHaveBeenCalled()
     expect(actions_addUser).not.toHaveBeenCalled()
-    expect(actions_removeAdmin).not.toHaveBeenCalled()
     expect(actions_removeUser).not.toHaveBeenCalled()
     expect(core.setFailed).not.toHaveBeenCalled()
   })
@@ -127,28 +139,12 @@ describe('main', () => {
     expect(actions_close).toHaveBeenCalledTimes(1)
   })
 
-  it('Processes an Add Admin Event', async () => {
-    events_getAction.mockReturnValue(AllowedIssueCommentAction.ADD_ADMIN)
-
-    await main.run()
-
-    expect(actions_addAdmin).toHaveBeenCalledTimes(1)
-  })
-
   it('Processes an Add User Event', async () => {
     events_getAction.mockReturnValue(AllowedIssueCommentAction.ADD_USER)
 
     await main.run()
 
     expect(actions_addUser).toHaveBeenCalledTimes(1)
-  })
-
-  it('Processes a Remove Admin Event', async () => {
-    events_getAction.mockReturnValue(AllowedIssueCommentAction.REMOVE_ADMIN)
-
-    await main.run()
-
-    expect(actions_removeAdmin).toHaveBeenCalledTimes(1)
   })
 
   it('Processes a Remove User Event', async () => {
