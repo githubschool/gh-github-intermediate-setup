@@ -13,6 +13,7 @@
     "coverage",
     "dist",
     "node_modules",
+    "eslint.config.mjs",
     "jest.config.ts",
     "rollup.config.ts"
   ],

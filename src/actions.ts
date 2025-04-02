@@ -141,66 +141,7 @@ export async function expire(): Promise<void> {
 }
 
 /**
- * Adds an administrator to a class.
- *
- * @param request Class Request
- * @param payload Issue Comment Payload
- */
-export async function addAdmin(
-  request: ClassRequest,
-  payload: IssueCommentEvent
-): Promise<void> {
-  core.info(`Adding Admin to Class Request: #${payload.issue.number}`)
-
-  // Create the authenticated Octokit client.
-  const token: string = core.getInput('github_token', { required: true })
-  const octokit = github.getOctokit(token)
-
-  // Get the user from the comment body.
-  // Format: .add-admin handle,email
-  if (
-    !payload.comment.body.split(' ')[1] ||
-    !payload.comment.body.split(' ')[1].includes(',') ||
-    payload.comment.body.split(' ')[1].split(',').length !== 2
-  )
-    throw new Error('Invalid Format! Try `.add-admin handle,email`')
-
-  const user = {
-    handle: payload.comment.body.split(' ')[1].split(',')[0],
-    email: payload.comment.body.split(' ')[1].split(',')[1]
-  }
-
-  // Check if the user is a GitHub/Microsoft employee.
-  const response: { user: { isEmployee: boolean; email: string } } =
-    await octokit.graphql(
-      `
-      query($login: String!) {
-        user(login: $login) {
-          isEmployee
-          email
-        }
-      }
-      `,
-      { login: user.handle }
-    )
-
-  // Do not add the admin if they are not a GitHub or Microsoft employee.
-  if (
-    !response.user.isEmployee &&
-    !response.user.email.includes('@microsoft.com')
-  )
-    throw new Error('Admins Must be GitHub/Microsoft Employees')
-
-  await teams.addUser(request, user, 'maintainer')
-
-  // Comment on the issue with the summary.
-  await issues.complete(request, payload.issue)
-
-  core.info(`Added Admin to Class Request: #${payload.issue.number}`)
-}
-
-/**
- * Adds an user to a class.
+ * Adds a user to a class.
  *
  * @param request Class Request
  * @param payload Issue Comment Payload
@@ -241,98 +182,6 @@ export async function addUser(
 }
 
 /**
- * Removes an administrator from the class.
- *
- * @param request Class Request
- * @param payload Issue Comment
- */
-export async function removeAdmin(
-  request: ClassRequest,
-  payload: IssueCommentEvent
-): Promise<void> {
-  core.info(`Removing Admin from Class Request: #${payload.issue.number}`)
-
-  // Create the authenticated Octokit client.
-  const token: string = core.getInput('github_token', { required: true })
-  const octokit = github.getOctokit(token)
-
-  // Get the user from the comment body.
-  // Format: .remove-admin handle,email
-  if (
-    !payload.comment.body.split(' ')[1] ||
-    !payload.comment.body.split(' ')[1].includes(',') ||
-    payload.comment.body.split(' ')[1].split(',').length !== 2
-  )
-    throw new Error('Invalid Format! Try `.remove-admin handle,email`')
-
-  const user = {
-    handle: payload.comment.body.split(' ')[1].split(',')[0],
-    email: payload.comment.body.split(' ')[1].split(',')[1]
-  }
-
-  // Check if the user is a GitHub/Microsoft employee.
-  const response: { user: { isEmployee: boolean; email: string } } =
-    await octokit.graphql(
-      `
-      query($login: String!) {
-        user(login: $login) {
-          isEmployee
-          email
-        }
-      }
-      `,
-      { login: user.handle }
-    )
-
-  // Get the user's membership state.
-  const memberState = await users.isOrgMember(user.handle)
-
-  // Remove the user from the organization (if they're not a GitHub or Microsoft
-  // employee). This will also remove them from the team.
-  if (
-    !response.user.isEmployee &&
-    !response.user.email.includes('@microsoft.com') &&
-    memberState === 'active'
-  )
-    await octokit.rest.orgs.removeMember({
-      org: Common.OWNER,
-      username: user.handle
-    })
-
-  // If the membership is still pending, cancel the invitation.
-  if (
-    !response.user.isEmployee &&
-    !response.user.email.includes('@microsoft.com') &&
-    memberState === 'pending'
-  ) {
-    // Get the invitation ID.
-    const invitations = await octokit.paginate(
-      octokit.rest.orgs.listPendingInvitations,
-      {
-        org: Common.OWNER
-      }
-    )
-
-    for (const invitation of invitations) {
-      if (invitation.login === user.handle) {
-        // Cancel the invitation.
-        await octokit.rest.orgs.cancelInvitation({
-          org: Common.OWNER,
-          invitation_id: invitation.id
-        })
-      }
-    }
-  }
-
-  // Remove from the team.
-  await teams.removeUser(request, user)
-
-  await issues.complete(request, payload.issue)
-
-  core.info(`Removed Admin from Class Request: #${payload.issue.number}`)
-}
-
-/**
  * Removes a user from the class.
  *
  * @param request Class Request
@@ -349,13 +198,13 @@ export async function removeUser(
   const octokit = github.getOctokit(token)
 
   // Get the user from the comment body.
-  // Format: .remove-admin handle,email
+  // Format: .remove-user handle,email
   if (
     !payload.comment.body.split(' ')[1] ||
     !payload.comment.body.split(' ')[1].includes(',') ||
     payload.comment.body.split(' ')[1].split(',').length !== 2
   )
-    throw new Error('Invalid Format! Try `.remove-admin handle,email`')
+    throw new Error('Invalid Format! Try `.remove-user handle,email`')
 
   const user = {
     handle: payload.comment.body.split(' ')[1].split(',')[0],
@@ -380,11 +229,13 @@ export async function removeUser(
   const memberState = await users.isOrgMember(user.handle)
 
   // Remove the user from the organization (if they're not a GitHub or Microsoft
-  // employee). This will also remove them from the team.
+  // employee, and are not in the instructors file). This will also remove them
+  // from the team.
   if (
     !response.user.isEmployee &&
     !response.user.email.includes('@microsoft.com') &&
-    memberState === 'active'
+    memberState === 'active' &&
+    !users.isInstructor(user.handle)
   )
     await octokit.rest.orgs.removeMember({
       org: Common.OWNER,
@@ -395,7 +246,8 @@ export async function removeUser(
   if (
     !response.user.isEmployee &&
     !response.user.email.includes('@microsoft.com') &&
-    memberState === 'pending'
+    memberState === 'pending' &&
+    !users.isInstructor(user.handle)
   ) {
     // Get the invitation ID.
     const invitations = await octokit.paginate(
@@ -416,14 +268,16 @@ export async function removeUser(
     }
   }
 
-  // Delete the user repository.
+  // Delete the user repository. This should happen regardless of whether the
+  // user is an employee or instructor.
   if (await repos.exists(request, user))
     await octokit.rest.repos.delete({
       owner: Common.OWNER,
       repo: repos.generateRepoName(request, user)
     })
 
-  // Remove from the team.
+  // Remove from the team. This should happen regardless of whether the user is
+  // an employee or instructor.
   await teams.removeUser(request, user)
 
   await issues.complete(request, payload.issue)

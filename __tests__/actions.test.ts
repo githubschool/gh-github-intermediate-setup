@@ -128,12 +128,6 @@ describe('actions', () => {
             customerAbbr: 'NA1',
             startDate: new Date(2024, 10, 17),
             endDate: new Date(2024, 10, 20),
-            administrators: [
-              {
-                handle: 'ncalteen',
-                email: 'ncalteen@github.com'
-              }
-            ],
             attendees: [
               {
                 handle: 'ncalteen-testuser',
@@ -164,12 +158,6 @@ describe('actions', () => {
             customerAbbr: 'NA1',
             startDate: new Date(2024, 10, 17),
             endDate: new Date(2024, 10, 20),
-            administrators: [
-              {
-                handle: 'ncalteen',
-                email: 'ncalteen@github.com'
-              }
-            ],
             attendees: [
               {
                 handle: 'ncalteen-testuser',
@@ -204,12 +192,6 @@ describe('actions', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -236,12 +218,6 @@ describe('actions', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -265,12 +241,6 @@ describe('actions', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -303,12 +273,6 @@ describe('actions', () => {
         customerAbbr: 'NA1',
         startDate: new Date(2023, 10, 17),
         endDate: new Date(2023, 10, 20),
-        administrators: [
-          {
-            handle: 'ncalteen',
-            email: 'ncalteen@github.com'
-          }
-        ],
         attendees: [
           {
             handle: 'ncalteen-testuser',
@@ -325,127 +289,6 @@ describe('actions', () => {
     })
   })
 
-  describe('addAdmin()', () => {
-    it('Throws on Invalid Format', async () => {
-      try {
-        await actions.addAdmin(
-          {
-            action: AllowedIssueAction.CREATE,
-            customerName: 'Nick Testing Industries',
-            customerAbbr: 'NA1',
-            startDate: new Date(2024, 10, 17),
-            endDate: new Date(2024, 10, 20),
-            administrators: [
-              {
-                handle: 'ncalteen',
-                email: 'ncalteen@github.com'
-              }
-            ],
-            attendees: [
-              {
-                handle: 'ncalteen-testuser',
-                email: 'ncalteen+testing@github.com'
-              }
-            ]
-          },
-          {
-            issue: { number: 1 },
-            comment: {
-              body: '.add-admin invalid format'
-            }
-          } as any
-        )
-      } catch (error: any) {
-        // eslint-disable-next-line jest/no-conditional-expect
-        expect(error.message).toBe(
-          'Invalid Format! Try `.add-admin handle,email`'
-        )
-      }
-    })
-
-    it('Adds an Admin', async () => {
-      mocktokit.graphql.mockResolvedValue({
-        user: {
-          isEmployee: true,
-          email: 'noreply@github.com'
-        }
-      })
-
-      await actions.addAdmin(
-        {
-          action: AllowedIssueAction.CREATE,
-          customerName: 'Nick Testing Industries',
-          customerAbbr: 'NA1',
-          startDate: new Date(2024, 10, 17),
-          endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
-          attendees: [
-            {
-              handle: 'ncalteen-testuser',
-              email: 'ncalteen+testing@github.com'
-            }
-          ]
-        },
-        {
-          issue: { number: 1 },
-          comment: {
-            body: '.add-admin ncalteen,ncalteen@github.com'
-          }
-        } as any
-      )
-
-      expect(teams_addUser).toHaveBeenCalled()
-      expect(issues_complete).toHaveBeenCalled()
-    })
-
-    it('Throws on Invalid Admin', async () => {
-      mocktokit.graphql.mockResolvedValue({
-        user: {
-          isEmployee: false,
-          email: 'fakeuser@notgithub.com'
-        }
-      })
-
-      try {
-        await actions.addAdmin(
-          {
-            action: AllowedIssueAction.CREATE,
-            customerName: 'Nick Testing Industries',
-            customerAbbr: 'NA1',
-            startDate: new Date(2024, 10, 17),
-            endDate: new Date(2024, 10, 20),
-            administrators: [
-              {
-                handle: 'ncalteen',
-                email: 'ncalteen@github.com'
-              }
-            ],
-            attendees: [
-              {
-                handle: 'ncalteen-testuser',
-                email: 'ncalteen+testing@github.com'
-              }
-            ]
-          },
-          {
-            issue: { number: 1 },
-            comment: {
-              body: '.add-admin fakeuser,fakeuser@notgithub.com'
-            }
-          } as any
-        )
-      } catch (error: any) {
-        // eslint-disable-next-line jest/no-conditional-expect
-        expect(error.message).toBe('Admins Must be GitHub/Microsoft Employees')
-      }
-    })
-  })
-
   describe('addUser()', () => {
     it('Throws on Invalid Format', async () => {
       try {
@@ -456,12 +299,6 @@ describe('actions', () => {
             customerAbbr: 'NA1',
             startDate: new Date(2024, 10, 17),
             endDate: new Date(2024, 10, 20),
-            administrators: [
-              {
-                handle: 'ncalteen',
-                email: 'ncalteen@github.com'
-              }
-            ],
             attendees: [
               {
                 handle: 'ncalteen-testuser',
@@ -492,12 +329,6 @@ describe('actions', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -517,45 +348,6 @@ describe('actions', () => {
       expect(repos_create).toHaveBeenCalled()
       expect(repos_configure).toHaveBeenCalled()
       expect(issues_complete).toHaveBeenCalled()
-    })
-  })
-
-  describe('removeAdmin()', () => {
-    it('Throws on Invalid Format', async () => {
-      try {
-        await actions.removeAdmin(
-          {
-            action: AllowedIssueAction.CREATE,
-            customerName: 'Nick Testing Industries',
-            customerAbbr: 'NA1',
-            startDate: new Date(2024, 10, 17),
-            endDate: new Date(2024, 10, 20),
-            administrators: [
-              {
-                handle: 'ncalteen',
-                email: 'ncalteen@github.com'
-              }
-            ],
-            attendees: [
-              {
-                handle: 'ncalteen-testuser',
-                email: 'ncalteen+testing@github.com'
-              }
-            ]
-          },
-          {
-            issue: { number: 1 },
-            comment: {
-              body: '.remove-admin invalid format'
-            }
-          } as any
-        )
-      } catch (error: any) {
-        // eslint-disable-next-line jest/no-conditional-expect
-        expect(error.message).toBe(
-          'Invalid Format! Try `.remove-admin handle,email`'
-        )
-      }
     })
   })
 })

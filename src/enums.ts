@@ -10,12 +10,8 @@ export enum AllowedIssueAction {
 
 /** Allowed Action Types (Issue Comment Event) */
 export enum AllowedIssueCommentAction {
-  /** Add an Administrator */
-  ADD_ADMIN = 'add-admin',
   /** Add a User */
   ADD_USER = 'add-user',
-  /** Remove an Administrator */
-  REMOVE_ADMIN = 'remove-admin',
   /** Remove a User */
   REMOVE_USER = 'remove-user'
 }

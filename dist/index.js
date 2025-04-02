@@ -27955,7 +27955,7 @@ function withDefaults$2(oldDefaults, newDefaults) {
 
 const endpoint = withDefaults$2(null, DEFAULTS);
 
-const VERSION$4 = "8.4.0";
+const VERSION$4 = "8.4.1";
 
 function isPlainObject(value) {
   if (typeof value !== "object" || value === null)
@@ -28103,7 +28103,7 @@ class RequestError extends Error {
     if (options.request.headers.authorization) {
       requestCopy.headers = Object.assign({}, options.request.headers, {
         authorization: options.request.headers.authorization.replace(
-          / .*$/,
+          /(?<! ) .*$/,
           " [REDACTED]"
         )
       });
@@ -28171,7 +28171,7 @@ function fetchWrapper(requestOptions) {
       headers[keyAndValue[0]] = keyAndValue[1];
     }
     if ("deprecation" in headers) {
-      const matches = headers.link && headers.link.match(/<([^>]+)>; rel="deprecation"/);
+      const matches = headers.link && headers.link.match(/<([^<>]+)>; rel="deprecation"/);
       const deprecationLink = matches && matches.pop();
       log.warn(
         `[@octokit/request] "${requestOptions.method} ${requestOptions.url}" is deprecated. It is scheduled to be removed on ${headers.sunset}${deprecationLink ? `. See ${deprecationLink}` : ""}`
@@ -30740,7 +30740,7 @@ var distSrc = /*#__PURE__*/Object.freeze({
 var require$$3 = /*@__PURE__*/getAugmentedNamespace(distSrc);
 
 // pkg/dist-src/version.js
-var VERSION = "9.2.1";
+var VERSION = "9.2.2";
 
 // pkg/dist-src/normalize-paginated-list-response.js
 function normalizePaginatedListResponse(response) {
@@ -30788,7 +30788,7 @@ function iterator(octokit, route, parameters) {
           const response = await requestMethod({ method, url, headers });
           const normalizedResponse = normalizePaginatedListResponse(response);
           url = ((normalizedResponse.headers.link || "").match(
-            /<([^>]+)>;\s*rel="next"/
+            /<([^<>]+)>;\s*rel="next"/
           ) || [])[1];
           return { value: normalizedResponse };
         } catch (error) {
@@ -38715,12 +38715,8 @@ var AllowedIssueAction;
 /** Allowed Action Types (Issue Comment Event) */
 var AllowedIssueCommentAction;
 (function (AllowedIssueCommentAction) {
-    /** Add an Administrator */
-    AllowedIssueCommentAction["ADD_ADMIN"] = "add-admin";
     /** Add a User */
     AllowedIssueCommentAction["ADD_USER"] = "add-user";
-    /** Remove an Administrator */
-    AllowedIssueCommentAction["REMOVE_ADMIN"] = "remove-admin";
     /** Remove a User */
     AllowedIssueCommentAction["REMOVE_USER"] = "remove-user";
 })(AllowedIssueCommentAction || (AllowedIssueCommentAction = {}));
@@ -38758,6 +38754,7 @@ function generateRepoName(request, user) {
  * Creates a repository for an attendee.
  *
  * @param request Class Request
+ * @param user User
  * @param team Team
  * @returns Repository Name
  */
@@ -39122,12 +39119,7 @@ async function configureLab10(options, octokit) {
  */
 async function configureLab11(options, octokit) {
     coreExports.info('Configuring Lab 11: Deploy to an Environment');
-    // // Commit the updates.
-    // core.info('Committing Changes')
-    // await exec.exec('git', ['add', '.'], options)
-    // await exec.exec('git', ['commit', '-m', 'Initial configuration'], options)
-    // core.info('Pushing changes')
-    // await exec.exec('git', ['push'], options)
+    // Nothing needs to be done...
     coreExports.info('Configured Lab 11: Deploy to an Environment');
 }
 
@@ -39197,14 +39189,11 @@ async function create$1(request) {
     // Create the team. Add the class administrators as maintainers.
     const response = await octokit.rest.teams.create({
         org: Common.OWNER,
-        name: generateTeamName(request),
-        maintainers: request.administrators.map((user) => {
-            return user.handle;
-        })
+        name: generateTeamName(request)
     });
     // Add the users to the team.
     for (const user of request.attendees)
-        await addUser$1(request, user, 'member');
+        await addUser$1(request, user);
     coreExports.info(`Created Class Team: ${generateTeamName(request)}`);
     return { slug: response.data.slug, id: response.data.id };
 }
@@ -39215,7 +39204,7 @@ async function create$1(request) {
  * @param user User to Add
  * @param role Role to Assign
  */
-async function addUser$1(request, user, role = 'member') {
+async function addUser$1(request, user) {
     coreExports.info(`Adding User to Class Team: ${user.handle}`);
     // Create the authenticated Octokit client.
     const token = coreExports.getInput('github_token', { required: true });
@@ -39225,12 +39214,12 @@ async function addUser$1(request, user, role = 'member') {
         org: Common.OWNER,
         team_slug: generateTeamName(request),
         username: user.handle,
-        role
+        role: 'member'
     });
     coreExports.info(`Added User to Class Team: ${user.handle}`);
 }
 /**
- * Removes a member to the team.
+ * Removes a member from the team.
  *
  * @param request Class Request
  * @param user User to Remove
@@ -39351,16 +39340,28 @@ async function removeUsers(request) {
         }
         `, { login: member.handle });
         // Remove the user from the organization (if they're not a GitHub or
-        // Microsoft employee).
+        // Microsoft employee and are not in the instructors list).
         if (!response.user.isEmployee &&
             !response.user.email.includes('@microsoft.com') &&
-            (await isOrgMember(member.handle)))
+            (await isOrgMember(member.handle)) &&
+            !isInstructor(member.handle))
             await octokit.rest.orgs.removeMember({
                 org: Common.OWNER,
                 username: member.handle
             });
     }
     coreExports.info(`Removed Users from the Organization: ${Common.OWNER}`);
+}
+/**
+ * Checks if the user is an instructor.
+ *
+ * @param handle User Handle
+ * @returns True if the user is in the instructors list, false otherwise.
+ */
+function isInstructor(handle) {
+    return YAML
+        .parse(fs.readFileSync(require$$1$4.resolve(process.env.GITHUB_WORKSPACE, 'instructors.yml'), 'utf8'))
+        .instructors.some((instructor) => instructor === handle);
 }
 
 /**
@@ -39378,7 +39379,6 @@ function parse(issue, action) {
         customerAbbr: /### Customer Abbreviation[\r\n]+(?<customerAbbr>[\s\S]*?)(?=###|$)/,
         startDate: /### Start Date[\r\n]+(?<startDate>[\s\S]*?)(?=###|$)/,
         endDate: /### End Date[\r\n]+(?<endDate>[\s\S]*?)(?=###|$)/,
-        administrators: /### Administrators[\r\n]+(?<administrators>[\s\S]*?)(?=###|$)/,
         attendees: /### Attendees[\r\n]+(?<attendees>[\s\S]*?)(?=###|$)/
     };
     // Get the PR body and check that it isn't empty
@@ -39394,10 +39394,6 @@ function parse(issue, action) {
             .toUpperCase() ?? '',
         startDate: body.match(regexes.startDate)?.groups?.startDate.trim() ?? '',
         endDate: body.match(regexes.endDate)?.groups?.endDate.trim() ?? '',
-        administrators: body
-            .match(regexes.administrators)
-            ?.groups?.administrators.trim()
-            .toLowerCase() ?? '',
         attendees: body.match(regexes.attendees)?.groups?.attendees.trim().toLowerCase() ??
             ''
     };
@@ -39418,17 +39414,6 @@ function parse(issue, action) {
     const endDate = isNaN(Date.parse(results.endDate))
         ? undefined
         : new Date(Date.parse(results.endDate));
-    // Parse the administrators, default to empty array.
-    const administrators = results.administrators.includes(noResponse.toLowerCase())
-        ? []
-        : results.administrators.split(/\n/).map((value) => {
-            if (value.split(/,\s?/).length !== 2)
-                throw new Error(`Invalid Administrator: ${value} (must be 'handle,email' format)`);
-            return {
-                email: value.split(/,\s?/)[1],
-                handle: value.split(/,\s?/)[0]
-            };
-        });
     // Parse the attendees, default to empty array.
     const attendees = results.attendees.includes(noResponse.toLowerCase())
         ? []
@@ -39450,9 +39435,6 @@ function parse(issue, action) {
         throw new Error('Start Date Not Found');
     if (!endDate)
         throw new Error('End Date Not Found');
-    // At least one admin is required, but attendees can be empty
-    if (administrators.length === 0)
-        throw new Error('At Least One Administrator Required');
     coreExports.info('Creating Class Request');
     const request = {
         action,
@@ -39460,7 +39442,6 @@ function parse(issue, action) {
         customerAbbr,
         startDate,
         endDate,
-        administrators,
         attendees
     };
     coreExports.info(JSON.stringify(request, null, 2));
@@ -39493,16 +39474,7 @@ async function complete(request, issue) {
  * @returns Comment Body
  */
 function generateMessage(request) {
-    // New class creation
-    if (request.action === AllowedIssueCommentAction.ADD_ADMIN) {
-        const payload = githubExports.context.payload;
-        const user = {
-            handle: payload.comment.body.split(' ')[1].split(',')[0],
-            email: payload.comment.body.split(' ')[1].split(',')[1]
-        };
-        return `The following admin has been added: ${user.handle}`;
-    }
-    else if (request.action === AllowedIssueCommentAction.ADD_USER) {
+    if (request.action === AllowedIssueCommentAction.ADD_USER) {
         const payload = githubExports.context.payload;
         const user = {
             handle: payload.comment.body.split(' ')[1].split(',')[0],
@@ -39536,21 +39508,11 @@ function generateMessage(request) {
       | Command                        | Description                     |
       |--------------------------------|---------------------------------|
       | \`.add-user handle,email\`     | Add a user to the class.        |
-      | \`.add-admin handle,email\`    | Add an admin to the class.      |
       | \`.remove-user handle,email\`  | Remove a user from the class.   |
-      | \`.remove-admin handle,email\` | Remove an admin from the class. |
       `);
     }
     else if (request.action === AllowedIssueAction.EXPIRE) {
         return 'It looks like this request has expired. Access has been revoked for all attendees!';
-    }
-    else if (request.action === AllowedIssueCommentAction.REMOVE_ADMIN) {
-        const payload = githubExports.context.payload;
-        const user = {
-            handle: payload.comment.body.split(' ')[1].split(',')[0],
-            email: payload.comment.body.split(' ')[1].split(',')[1]
-        };
-        return `The following admin has been removed: ${user.handle}`;
     }
     else if (request.action === AllowedIssueCommentAction.REMOVE_USER) {
         const payload = githubExports.context.payload;
@@ -39679,46 +39641,7 @@ async function expire() {
     coreExports.info('Expired Open Classes');
 }
 /**
- * Adds an administrator to a class.
- *
- * @param request Class Request
- * @param payload Issue Comment Payload
- */
-async function addAdmin(request, payload) {
-    coreExports.info(`Adding Admin to Class Request: #${payload.issue.number}`);
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    // Get the user from the comment body.
-    // Format: .add-admin handle,email
-    if (!payload.comment.body.split(' ')[1] ||
-        !payload.comment.body.split(' ')[1].includes(',') ||
-        payload.comment.body.split(' ')[1].split(',').length !== 2)
-        throw new Error('Invalid Format! Try `.add-admin handle,email`');
-    const user = {
-        handle: payload.comment.body.split(' ')[1].split(',')[0],
-        email: payload.comment.body.split(' ')[1].split(',')[1]
-    };
-    // Check if the user is a GitHub/Microsoft employee.
-    const response = await octokit.graphql(`
-      query($login: String!) {
-        user(login: $login) {
-          isEmployee
-          email
-        }
-      }
-      `, { login: user.handle });
-    // Do not add the admin if they are not a GitHub or Microsoft employee.
-    if (!response.user.isEmployee &&
-        !response.user.email.includes('@microsoft.com'))
-        throw new Error('Admins Must be GitHub/Microsoft Employees');
-    await addUser$1(request, user, 'maintainer');
-    // Comment on the issue with the summary.
-    await complete(request, payload.issue);
-    coreExports.info(`Added Admin to Class Request: #${payload.issue.number}`);
-}
-/**
- * Adds an user to a class.
+ * Adds a user to a class.
  *
  * @param request Class Request
  * @param payload Issue Comment Payload
@@ -39746,70 +39669,6 @@ async function addUser(request, payload) {
     coreExports.info(`Added User to Class Request: #${payload.issue.number}`);
 }
 /**
- * Removes an administrator from the class.
- *
- * @param request Class Request
- * @param payload Issue Comment
- */
-async function removeAdmin(request, payload) {
-    coreExports.info(`Removing Admin from Class Request: #${payload.issue.number}`);
-    // Create the authenticated Octokit client.
-    const token = coreExports.getInput('github_token', { required: true });
-    const octokit = githubExports.getOctokit(token);
-    // Get the user from the comment body.
-    // Format: .remove-admin handle,email
-    if (!payload.comment.body.split(' ')[1] ||
-        !payload.comment.body.split(' ')[1].includes(',') ||
-        payload.comment.body.split(' ')[1].split(',').length !== 2)
-        throw new Error('Invalid Format! Try `.remove-admin handle,email`');
-    const user = {
-        handle: payload.comment.body.split(' ')[1].split(',')[0],
-        email: payload.comment.body.split(' ')[1].split(',')[1]
-    };
-    // Check if the user is a GitHub/Microsoft employee.
-    const response = await octokit.graphql(`
-      query($login: String!) {
-        user(login: $login) {
-          isEmployee
-          email
-        }
-      }
-      `, { login: user.handle });
-    // Get the user's membership state.
-    const memberState = await isOrgMember(user.handle);
-    // Remove the user from the organization (if they're not a GitHub or Microsoft
-    // employee). This will also remove them from the team.
-    if (!response.user.isEmployee &&
-        !response.user.email.includes('@microsoft.com') &&
-        memberState === 'active')
-        await octokit.rest.orgs.removeMember({
-            org: Common.OWNER,
-            username: user.handle
-        });
-    // If the membership is still pending, cancel the invitation.
-    if (!response.user.isEmployee &&
-        !response.user.email.includes('@microsoft.com') &&
-        memberState === 'pending') {
-        // Get the invitation ID.
-        const invitations = await octokit.paginate(octokit.rest.orgs.listPendingInvitations, {
-            org: Common.OWNER
-        });
-        for (const invitation of invitations) {
-            if (invitation.login === user.handle) {
-                // Cancel the invitation.
-                await octokit.rest.orgs.cancelInvitation({
-                    org: Common.OWNER,
-                    invitation_id: invitation.id
-                });
-            }
-        }
-    }
-    // Remove from the team.
-    await removeUser$1(request, user);
-    await complete(request, payload.issue);
-    coreExports.info(`Removed Admin from Class Request: #${payload.issue.number}`);
-}
-/**
  * Removes a user from the class.
  *
  * @param request Class Request
@@ -39821,11 +39680,11 @@ async function removeUser(request, payload) {
     const token = coreExports.getInput('github_token', { required: true });
     const octokit = githubExports.getOctokit(token);
     // Get the user from the comment body.
-    // Format: .remove-admin handle,email
+    // Format: .remove-user handle,email
     if (!payload.comment.body.split(' ')[1] ||
         !payload.comment.body.split(' ')[1].includes(',') ||
         payload.comment.body.split(' ')[1].split(',').length !== 2)
-        throw new Error('Invalid Format! Try `.remove-admin handle,email`');
+        throw new Error('Invalid Format! Try `.remove-user handle,email`');
     const user = {
         handle: payload.comment.body.split(' ')[1].split(',')[0],
         email: payload.comment.body.split(' ')[1].split(',')[1]
@@ -39842,10 +39701,12 @@ async function removeUser(request, payload) {
     // Get the user's membership state.
     const memberState = await isOrgMember(user.handle);
     // Remove the user from the organization (if they're not a GitHub or Microsoft
-    // employee). This will also remove them from the team.
+    // employee, and are not in the instructors file). This will also remove them
+    // from the team.
     if (!response.user.isEmployee &&
         !response.user.email.includes('@microsoft.com') &&
-        memberState === 'active')
+        memberState === 'active' &&
+        !isInstructor(user.handle))
         await octokit.rest.orgs.removeMember({
             org: Common.OWNER,
             username: user.handle
@@ -39853,7 +39714,8 @@ async function removeUser(request, payload) {
     // If the membership is still pending, cancel the invitation.
     if (!response.user.isEmployee &&
         !response.user.email.includes('@microsoft.com') &&
-        memberState === 'pending') {
+        memberState === 'pending' &&
+        !isInstructor(user.handle)) {
         // Get the invitation ID.
         const invitations = await octokit.paginate(octokit.rest.orgs.listPendingInvitations, {
             org: Common.OWNER
@@ -39868,13 +39730,15 @@ async function removeUser(request, payload) {
             }
         }
     }
-    // Delete the user repository.
+    // Delete the user repository. This should happen regardless of whether the
+    // user is an employee or instructor.
     if (await exists$1(request, user))
         await octokit.rest.repos.delete({
             owner: Common.OWNER,
             repo: generateRepoName(request, user)
         });
-    // Remove from the team.
+    // Remove from the team. This should happen regardless of whether the user is
+    // an employee or instructor.
     await removeUser$1(request, user);
     await complete(request, payload.issue);
     coreExports.info(`Removed User from Class Request: #${payload.issue.number}`);
@@ -39902,12 +39766,8 @@ function getAction(name, payload) {
         return undefined;
     }
     if (name === 'issue_comment' && payload.action === 'created') {
-        if (payload.comment.body.startsWith('.add-admin'))
-            return AllowedIssueCommentAction.ADD_ADMIN;
         if (payload.comment.body.startsWith('.add-user'))
             return AllowedIssueCommentAction.ADD_USER;
-        if (payload.comment.body.startsWith('.remove-admin'))
-            return AllowedIssueCommentAction.REMOVE_ADMIN;
         if (payload.comment.body.startsWith('.remove-user'))
             return AllowedIssueCommentAction.REMOVE_USER;
     }
@@ -39942,12 +39802,8 @@ async function run() {
             await create(request, payload.issue);
         else if (action === AllowedIssueAction.CLOSE)
             await close(request, payload.issue);
-        else if (action === AllowedIssueCommentAction.ADD_ADMIN)
-            await addAdmin(request, payload);
         else if (action === AllowedIssueCommentAction.ADD_USER)
             await addUser(request, payload);
-        else if (action === AllowedIssueCommentAction.REMOVE_ADMIN)
-            await removeAdmin(request, payload);
         else if (action === AllowedIssueCommentAction.REMOVE_USER)
             await removeUser(request, payload);
     }

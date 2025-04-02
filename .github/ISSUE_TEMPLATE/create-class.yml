@@ -48,19 +48,6 @@ body:
     validations:
       required: true
   - type: textarea
-    id: administrators
-    attributes:
-      label: Administrators
-      description:
-        A list of GitHub handles and emails to add as repository administrators.
-        This should include anyone who will be delivering or supporting delivery
-        of this training.
-      placeholder: |
-        ncalteen,ncalteen@github.com
-        octocat,octocat@github.com
-    validations:
-      required: true
-  - type: textarea
     id: attendees
     attributes:
       label: Attendees

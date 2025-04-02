@@ -29,14 +29,8 @@ export function getAction(
   }
 
   if (name === 'issue_comment' && payload.action === 'created') {
-    if (payload.comment.body.startsWith('.add-admin'))
-      return AllowedIssueCommentAction.ADD_ADMIN
-
     if (payload.comment.body.startsWith('.add-user'))
       return AllowedIssueCommentAction.ADD_USER
-
-    if (payload.comment.body.startsWith('.remove-admin'))
-      return AllowedIssueCommentAction.REMOVE_ADMIN
 
     if (payload.comment.body.startsWith('.remove-user'))
       return AllowedIssueCommentAction.REMOVE_USER

@@ -12,8 +12,6 @@ export type ClassRequest = {
   startDate: Date
   /** End Date */
   endDate: Date
-  /** Administrators */
-  administrators: User[]
   /** Attendees */
   attendees: User[]
   /** Team */

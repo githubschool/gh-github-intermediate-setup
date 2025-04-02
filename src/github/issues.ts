@@ -33,8 +33,6 @@ export function parse(
       /### Customer Abbreviation[\r\n]+(?<customerAbbr>[\s\S]*?)(?=###|$)/,
     startDate: /### Start Date[\r\n]+(?<startDate>[\s\S]*?)(?=###|$)/,
     endDate: /### End Date[\r\n]+(?<endDate>[\s\S]*?)(?=###|$)/,
-    administrators:
-      /### Administrators[\r\n]+(?<administrators>[\s\S]*?)(?=###|$)/,
     attendees: /### Attendees[\r\n]+(?<attendees>[\s\S]*?)(?=###|$)/
   }
 
@@ -54,11 +52,6 @@ export function parse(
         .toUpperCase() ?? '',
     startDate: body.match(regexes.startDate)?.groups?.startDate.trim() ?? '',
     endDate: body.match(regexes.endDate)?.groups?.endDate.trim() ?? '',
-    administrators:
-      body
-        .match(regexes.administrators)
-        ?.groups?.administrators.trim()
-        .toLowerCase() ?? '',
     attendees:
       body.match(regexes.attendees)?.groups?.attendees.trim().toLowerCase() ??
       ''
@@ -89,23 +82,6 @@ export function parse(
     ? undefined
     : new Date(Date.parse(results.endDate))
 
-  // Parse the administrators, default to empty array.
-  const administrators: User[] = results.administrators.includes(
-    noResponse.toLowerCase()
-  )
-    ? []
-    : results.administrators.split(/\n/).map((value: string) => {
-        if (value.split(/,\s?/).length !== 2)
-          throw new Error(
-            `Invalid Administrator: ${value} (must be 'handle,email' format)`
-          )
-
-        return {
-          email: value.split(/,\s?/)[1],
-          handle: value.split(/,\s?/)[0]
-        }
-      })
-
   // Parse the attendees, default to empty array.
   const attendees: User[] = results.attendees.includes(noResponse.toLowerCase())
     ? []
@@ -128,10 +104,6 @@ export function parse(
   if (!startDate) throw new Error('Start Date Not Found')
   if (!endDate) throw new Error('End Date Not Found')
 
-  // At least one admin is required, but attendees can be empty
-  if (administrators.length === 0)
-    throw new Error('At Least One Administrator Required')
-
   core.info('Creating Class Request')
   const request: ClassRequest = {
     action,
@@ -139,7 +111,6 @@ export function parse(
     customerAbbr,
     startDate,
     endDate,
-    administrators,
     attendees
   }
 
@@ -207,7 +178,7 @@ export async function close(
       })
 
     // Remove the user from the organization (if they're not a GitHub or
-    // Microsoft employee).
+    // Microsoft employee and are not in the instructors list).
     const response = (await octokit.graphql(
       `
       query($login: String!) {
@@ -223,12 +194,14 @@ export async function close(
     // Get the user's membership state.
     const memberState = await users.isOrgMember(user.handle)
 
-    // Remove the user from the organization (if they're not a GitHub or Microsoft
-    // employee). This will also remove them from the team.
+    // Remove the user from the organization (if they're not a GitHub or
+    // Microsoft employee and are not in the instructor list). This will also
+    // remove them from the team.
     if (
       !response.user.isEmployee &&
       !response.user.email.includes('@microsoft.com') &&
-      memberState === 'active'
+      memberState === 'active' &&
+      !users.isInstructor(user.handle)
     )
       await octokit.rest.orgs.removeMember({
         org: Common.OWNER,
@@ -239,7 +212,8 @@ export async function close(
     if (
       !response.user.isEmployee &&
       !response.user.email.includes('@microsoft.com') &&
-      memberState === 'pending'
+      memberState === 'pending' &&
+      !users.isInstructor(user.handle)
     ) {
       // Get the invitation ID.
       const invitations = await octokit.paginate(
@@ -291,16 +265,7 @@ export async function close(
  * @returns Comment Body
  */
 export function generateMessage(request: ClassRequest): string {
-  // New class creation
-  if (request.action === AllowedIssueCommentAction.ADD_ADMIN) {
-    const payload = github.context.payload as IssueCommentEvent
-    const user = {
-      handle: payload.comment.body.split(' ')[1].split(',')[0],
-      email: payload.comment.body.split(' ')[1].split(',')[1]
-    }
-
-    return `The following admin has been added: ${user.handle}`
-  } else if (request.action === AllowedIssueCommentAction.ADD_USER) {
+  if (request.action === AllowedIssueCommentAction.ADD_USER) {
     const payload = github.context.payload as IssueCommentEvent
     const user = {
       handle: payload.comment.body.split(' ')[1].split(',')[0],
@@ -336,20 +301,10 @@ export function generateMessage(request: ClassRequest): string {
       | Command                        | Description                     |
       |--------------------------------|---------------------------------|
       | \`.add-user handle,email\`     | Add a user to the class.        |
-      | \`.add-admin handle,email\`    | Add an admin to the class.      |
       | \`.remove-user handle,email\`  | Remove a user from the class.   |
-      | \`.remove-admin handle,email\` | Remove an admin from the class. |
       `)
   } else if (request.action === AllowedIssueAction.EXPIRE) {
     return 'It looks like this request has expired. Access has been revoked for all attendees!'
-  } else if (request.action === AllowedIssueCommentAction.REMOVE_ADMIN) {
-    const payload = github.context.payload as IssueCommentEvent
-    const user = {
-      handle: payload.comment.body.split(' ')[1].split(',')[0],
-      email: payload.comment.body.split(' ')[1].split(',')[1]
-    }
-
-    return `The following admin has been removed: ${user.handle}`
   } else if (request.action === AllowedIssueCommentAction.REMOVE_USER) {
     const payload = github.context.payload as IssueCommentEvent
     const user = {

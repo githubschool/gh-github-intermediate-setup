@@ -54,17 +54,6 @@ describe('events', () => {
       ).toBe(undefined)
     })
 
-    it('Returns Add Admin Action for .add-admin Issue Comment Events', () => {
-      expect(
-        events.getAction('issue_comment', {
-          action: 'created',
-          comment: {
-            body: '.add-admin handle,email'
-          }
-        } as any)
-      ).toBe(AllowedIssueCommentAction.ADD_ADMIN)
-    })
-
     it('Returns Add User for .add-user Issue Comment Events', () => {
       expect(
         events.getAction('issue_comment', {
@@ -74,17 +63,6 @@ describe('events', () => {
           }
         } as any)
       ).toBe(AllowedIssueCommentAction.ADD_USER)
-    })
-
-    it('Returns Remove Admin for .remove-admin Issue Comment Events', () => {
-      expect(
-        events.getAction('issue_comment', {
-          action: 'created',
-          comment: {
-            body: '.remove-admin handle,email'
-          }
-        } as any)
-      ).toBe(AllowedIssueCommentAction.REMOVE_ADMIN)
     })
 
     it('Returns Remove User for .remove-user Issue Comment Events', () => {

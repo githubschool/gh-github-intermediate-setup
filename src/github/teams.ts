@@ -77,14 +77,11 @@ export async function create(request: ClassRequest): Promise<Team> {
   // Create the team. Add the class administrators as maintainers.
   const response = await octokit.rest.teams.create({
     org: Common.OWNER,
-    name: generateTeamName(request),
-    maintainers: request.administrators.map((user) => {
-      return user.handle
-    })
+    name: generateTeamName(request)
   })
 
   // Add the users to the team.
-  for (const user of request.attendees) await addUser(request, user, 'member')
+  for (const user of request.attendees) await addUser(request, user)
 
   core.info(`Created Class Team: ${generateTeamName(request)}`)
   return { slug: response.data.slug, id: response.data.id }
@@ -99,8 +96,7 @@ export async function create(request: ClassRequest): Promise<Team> {
  */
 export async function addUser(
   request: ClassRequest,
-  user: User,
-  role: 'member' | 'maintainer' = 'member'
+  user: User
 ): Promise<void> {
   core.info(`Adding User to Class Team: ${user.handle}`)
 
@@ -113,14 +109,14 @@ export async function addUser(
     org: Common.OWNER,
     team_slug: generateTeamName(request),
     username: user.handle,
-    role
+    role: 'member'
   })
 
   core.info(`Added User to Class Team: ${user.handle}`)
 }
 
 /**
- * Removes a member to the team.
+ * Removes a member from the team.
  *
  * @param request Class Request
  * @param user User to Remove

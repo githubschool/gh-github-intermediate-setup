@@ -33,6 +33,9 @@ const teams_exists: jest.SpiedFunction<
 const teams_generateTeamName: jest.SpiedFunction<
   typeof import('../../src/github/teams.js').generateTeamName
 > = jest.fn()
+const users_isInstructor: jest.SpiedFunction<
+  typeof import('../../src/github/users.js').isInstructor
+> = jest.fn()
 const users_isOrgMember: jest.SpiedFunction<
   typeof import('../../src/github/users.js').isOrgMember
 > = jest.fn()
@@ -46,6 +49,7 @@ jest.unstable_mockModule('../../src/github/teams.js', () => ({
   generateTeamName: teams_generateTeamName
 }))
 jest.unstable_mockModule('../../src/github/users.js', () => ({
+  isInstructor: users_isInstructor,
   isOrgMember: users_isOrgMember
 }))
 
@@ -145,7 +149,7 @@ describe('issues', () => {
       } catch (e: any) {
         // eslint-disable-next-line jest/no-conditional-expect
         expect(e.message).toBe(
-          "Invalid Administrator:  (must be 'handle,email' format)"
+          "Invalid Attendee:  (must be 'handle,email' format)"
         )
       }
     })
@@ -184,12 +188,6 @@ describe('issues', () => {
         customerAbbr: 'NA1',
         startDate: expect.any(Date),
         endDate: expect.any(Date),
-        administrators: [
-          {
-            handle: 'ncalteen',
-            email: 'ncalteen@github.com'
-          }
-        ],
         attendees: [
           {
             handle: 'ncalteen-testuser',
@@ -216,12 +214,6 @@ describe('issues', () => {
         customerAbbr: 'NA1',
         startDate: expect.any(Date),
         endDate: expect.any(Date),
-        administrators: [
-          {
-            handle: 'ncalteen',
-            email: 'ncalteen@github.com'
-          }
-        ],
         attendees: []
       })
     })
@@ -240,12 +232,6 @@ describe('issues', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -296,12 +282,6 @@ describe('issues', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -339,12 +319,6 @@ describe('issues', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -360,33 +334,6 @@ describe('issues', () => {
   })
 
   describe('generateMessage()', () => {
-    it('Generates an Add Admin Message', () => {
-      github.context.payload.comment.body =
-        '.add-admin ncalteen,ncalteen@github.com'
-
-      expect(
-        typeof issues.generateMessage({
-          action: AllowedIssueCommentAction.ADD_ADMIN,
-          customerName: 'Nick Testing Industries',
-          customerAbbr: 'NA1',
-          startDate: new Date(2024, 10, 17),
-          endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
-          attendees: [
-            {
-              handle: 'ncalteen-testuser',
-              email: 'ncalteen+testing@github.com'
-            }
-          ]
-        })
-      ).toBe('string')
-    })
-
     it('Generates an Add User Message', () => {
       github.context.payload.comment.body =
         '.add-user ncalteen,ncalteen@github.com'
@@ -398,12 +345,6 @@ describe('issues', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -422,12 +363,6 @@ describe('issues', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -446,12 +381,6 @@ describe('issues', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -470,39 +399,6 @@ describe('issues', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
-          attendees: [
-            {
-              handle: 'ncalteen-testuser',
-              email: 'ncalteen+testing@github.com'
-            }
-          ]
-        })
-      ).toBe('string')
-    })
-
-    it('Generates a Remove Admin Message', () => {
-      github.context.payload.comment.body =
-        '.remove-admin ncalteen,ncalteen@github.com'
-
-      expect(
-        typeof issues.generateMessage({
-          action: AllowedIssueCommentAction.REMOVE_ADMIN,
-          customerName: 'Nick Testing Industries',
-          customerAbbr: 'NA1',
-          startDate: new Date(2024, 10, 17),
-          endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -524,12 +420,6 @@ describe('issues', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
@@ -548,12 +438,6 @@ describe('issues', () => {
           customerAbbr: 'NA1',
           startDate: new Date(2024, 10, 17),
           endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
           attendees: [
             {
               handle: 'ncalteen-testuser',
