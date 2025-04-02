@@ -1,7 +1,7 @@
 {
   "name": "gh-github-intermediate-issueops",
   "description": "GitHub Intermediate Offering: IssueOps Automation",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "author": "Nick Alteen <ncalteen@github.com>",
   "private": true,
   "type": "module",

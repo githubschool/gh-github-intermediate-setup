@@ -299,7 +299,7 @@ export function generateMessage(request: ClassRequest): string {
 
     ### :warning: **IMPORTANT** :warning:
 
-    - The listed repositories will be automatically **deleted** on **${request.endDate.toString()}**.
+    - The listed repositories will be automatically **deleted** on **${request.endDate.toDateString()}**.
     - Do not close this issue! Doing so will immediately revoke access and delete the attendee repositories.
 
     If you need to add/remove users, use the comment commands below.
