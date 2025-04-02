@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import type { IssueCommentEvent, IssuesEvent } from '@octokit/webhooks-types'
+import { dedent } from 'ts-dedent'
 import { AllowedIssueAction, Common } from './enums.js'
 import * as issues from './github/issues.js'
 import * as repos from './github/repos.js'
@@ -164,6 +165,26 @@ export async function addUser(
   const user = {
     handle: payload.comment.body.split(' ')[1].split(',')[0],
     email: payload.comment.body.split(' ')[1].split(',')[1]
+  }
+
+  // Check if the user is already in the team and the repository already exists.
+  if (
+    (await repos.exists(request, user)) &&
+    (await teams.getMembers(request))
+      .map((user) => user.handle)
+      .includes(user.handle)
+  ) {
+    // Add a comment that the user is already added.
+    const token: string = core.getInput('github_token', { required: true })
+    const octokit = github.getOctokit(token)
+
+    // Add the error comment to the request issue.
+    await octokit.rest.issues.createComment({
+      issue_number: (payload as IssueCommentEvent).issue.number,
+      owner: Common.OWNER,
+      repo: Common.ISSUEOPS_REPO,
+      body: dedent`User \`${user.handle}\` is already added!`
+    })
   }
 
   const team = await teams.get(request)

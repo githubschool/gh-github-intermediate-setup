@@ -39661,6 +39661,22 @@ async function addUser(request, payload) {
         handle: payload.comment.body.split(' ')[1].split(',')[0],
         email: payload.comment.body.split(' ')[1].split(',')[1]
     };
+    // Check if the user is already in the team and the repository already exists.
+    if ((await exists$1(request, user)) &&
+        (await getMembers(request))
+            .map((user) => user.handle)
+            .includes(user.handle)) {
+        // Add a comment that the user is already added.
+        const token = coreExports.getInput('github_token', { required: true });
+        const octokit = githubExports.getOctokit(token);
+        // Add the error comment to the request issue.
+        await octokit.rest.issues.createComment({
+            issue_number: payload.issue.number,
+            owner: Common.OWNER,
+            repo: Common.ISSUEOPS_REPO,
+            body: dedent `User \`${user.handle}\` is already added!`
+        });
+    }
     const team = await get(request);
     // Add the user to the team.
     await addUser$1(request, user);
