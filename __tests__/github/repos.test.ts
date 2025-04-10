@@ -1,14 +1,12 @@
 import { jest } from '@jest/globals'
-import * as core from '../../__fixtures__/core.js'
-import * as exec from '../../__fixtures__/exec.js'
+import * as core from '../../__fixtures__/@actions/core.js'
+import * as exec from '../../__fixtures__/@actions/exec.js'
+import * as octokit from '../../__fixtures__/@octokit/rest.js'
+import { TEST_CLASSROOM } from '../../__fixtures__/common.js'
 import * as fs from '../../__fixtures__/fs.js'
-import * as github from '../../__fixtures__/github.js'
-import * as octokit from '../../__fixtures__/octokit.js'
-import { AllowedIssueAction } from '../../src/enums.js'
 
 jest.unstable_mockModule('@actions/core', () => core)
 jest.unstable_mockModule('@actions/exec', () => exec)
-jest.unstable_mockModule('@actions/github', () => github)
 jest.unstable_mockModule('@octokit/rest', async () => {
   class Octokit {
     constructor() {
@@ -22,12 +20,16 @@ jest.unstable_mockModule('@octokit/rest', async () => {
 })
 jest.unstable_mockModule('fs', () => fs)
 
-const teams_getMembers: jest.SpiedFunction<
+const generateTeamName: jest.SpiedFunction<
+  typeof import('../../src/github/teams.js').generateTeamName
+> = jest.fn()
+const getMembers: jest.SpiedFunction<
   typeof import('../../src/github/teams.js').getMembers
 > = jest.fn()
 
 jest.unstable_mockModule('../../src/github/teams.js', () => ({
-  getMembers: teams_getMembers
+  generateTeamName,
+  getMembers
 }))
 
 const repos = await import('../../src/github/repos.js')
@@ -41,40 +43,15 @@ describe('repos', () => {
   })
 
   describe('generateRepoName()', () => {
-    it('Generates a Repo Name', () => {
+    it('Generates a repo name', () => {
       expect(
-        repos.generateRepoName(
-          {
-            action: AllowedIssueAction.CREATE,
-            customerName: 'Nick Testing Industries',
-            customerAbbr: 'NA1',
-            startDate: new Date(2024, 10, 17),
-            endDate: new Date(2024, 10, 20),
-            administrators: [
-              {
-                handle: 'ncalteen',
-                email: 'ncalteen@github.com'
-              }
-            ],
-            attendees: [
-              {
-                handle: 'ncalteen-testuser',
-                email: 'ncalteen+testing@github.com'
-              }
-            ]
-          },
-          {
-            handle: 'ncalteen-testuser',
-            email: 'ncalteen+testing@github.com'
-          }
-        )
-      ).toBe('gh-int-na1-ncalteen-testuser')
+        repos.generateRepoName(TEST_CLASSROOM, 'ncalteen-testuser')
+      ).toEqual('gh-int-tc-ncalteen-testuser')
     })
   })
 
   describe('create()', () => {
     beforeEach(() => {
-      core.getInput.mockReturnValue('github-token')
       mocktokit.rest.repos.createUsingTemplate.mockResolvedValue({
         data: {
           name: 'repo-name'
@@ -82,36 +59,8 @@ describe('repos', () => {
       } as any)
     })
 
-    it('Creates a Repo', async () => {
-      await repos.create(
-        {
-          action: AllowedIssueAction.CREATE,
-          customerName: 'Nick Testing Industries',
-          customerAbbr: 'NA1',
-          startDate: new Date(2024, 10, 17),
-          endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
-          attendees: [
-            {
-              handle: 'ncalteen-testuser',
-              email: 'ncalteen+testing@github.com'
-            }
-          ]
-        },
-        {
-          handle: 'ncalteen-testuser',
-          email: 'ncalteen+testing@github.com'
-        },
-        {
-          id: 1234,
-          slug: 'team-name'
-        }
-      )
+    it('Creates a repo', async () => {
+      await repos.create(mocktokit, TEST_CLASSROOM, 'ncalteen-testuser')
 
       expect(mocktokit.rest.repos.createUsingTemplate).toHaveBeenCalled()
       expect(
@@ -121,81 +70,31 @@ describe('repos', () => {
   })
 
   describe('exists()', () => {
-    beforeEach(() => {
-      core.getInput.mockReturnValue('github-token')
-    })
+    it('Returns true if a repo exists', async () => {
+      mocktokit.rest.repos.get.mockResolvedValue({
+        data: {
+          name: 'repo-name'
+        }
+      } as any)
 
-    it('Returns True if a Repo Exists', async () => {
       expect(
-        await repos.exists(
-          {
-            action: AllowedIssueAction.CREATE,
-            customerName: 'Nick Testing Industries',
-            customerAbbr: 'NA1',
-            startDate: new Date(2024, 10, 17),
-            endDate: new Date(2024, 10, 20),
-            administrators: [
-              {
-                handle: 'ncalteen',
-                email: 'ncalteen@github.com'
-              }
-            ],
-            attendees: [
-              {
-                handle: 'ncalteen-testuser',
-                email: 'ncalteen+testing@github.com'
-              }
-            ]
-          },
-          {
-            handle: 'ncalteen-testuser',
-            email: 'ncalteen+testing@github.com'
-          }
-        )
+        await repos.exists(mocktokit, TEST_CLASSROOM, 'ncalteen-testuser')
       ).toBe(true)
     })
 
-    it('Returns False if a Repo Does Not Exist', async () => {
+    it('Returns false if a repo does not exist', async () => {
       mocktokit.rest.repos.get.mockRejectedValue({
         status: 404
       })
 
       expect(
-        await repos.exists(
-          {
-            action: AllowedIssueAction.CREATE,
-            customerName: 'Nick Testing Industries',
-            customerAbbr: 'NA1',
-            startDate: new Date(2024, 10, 17),
-            endDate: new Date(2024, 10, 20),
-            administrators: [
-              {
-                handle: 'ncalteen',
-                email: 'ncalteen@github.com'
-              }
-            ],
-            attendees: [
-              {
-                handle: 'ncalteen-testuser',
-                email: 'ncalteen+testing@github.com'
-              }
-            ]
-          },
-          {
-            handle: 'ncalteen-testuser',
-            email: 'ncalteen+testing@github.com'
-          }
-        )
+        await repos.exists(mocktokit, TEST_CLASSROOM, 'ncalteen-testuser')
       ).toBe(false)
     })
   })
 
   describe('configure()', () => {
     beforeEach(() => {
-      core.getInput
-        .mockReturnValueOnce('workspace')
-        .mockReturnValueOnce('github-token')
-
       mocktokit.rest.repos.createPagesSite.mockResolvedValue({
         data: {
           html_url: 'pages-url'
@@ -203,47 +102,58 @@ describe('repos', () => {
       } as any)
     })
 
-    it('Configures a Repo', async () => {
+    it('Configures a repo', async () => {
       exec.getExecOutput.mockResolvedValue({
         stdout: 'stdout',
         stderr: 'stderr',
         exitCode: 0
       } as never)
 
-      await repos.configure(
-        {
-          action: AllowedIssueAction.CREATE,
-          customerName: 'Nick Testing Industries',
-          customerAbbr: 'NA1',
-          startDate: new Date(2024, 10, 17),
-          endDate: new Date(2024, 10, 20),
-          administrators: [
-            {
-              handle: 'ncalteen',
-              email: 'ncalteen@github.com'
-            }
-          ],
-          attendees: [
-            {
-              handle: 'ncalteen-testuser',
-              email: 'ncalteen+testing@github.com'
-            }
-          ]
-        },
-        {
-          handle: 'ncalteen-testuser',
-          email: 'ncalteen+testing@github.com'
-        },
-        'gh-int-na1-ncalteen-testuser',
-        {
-          id: 1234,
-          slug: 'team-name'
-        }
-      )
+      await repos.configure(mocktokit, TEST_CLASSROOM, 'ncalteen-testuser')
 
       expect(mocktokit.rest.repos.createOrUpdateEnvironment).toHaveBeenCalled()
       expect(mocktokit.rest.repos.createPagesSite).toHaveBeenCalled()
       expect(mocktokit.rest.repos.update).toHaveBeenCalled()
+    })
+  })
+
+  describe('deleteRepositories()', () => {
+    it('Deletes all class repositories', async () => {
+      mocktokit.rest.search.repos.mockResolvedValue({
+        data: {
+          items: [{ name: 'repo-1' }, { name: 'repo-2' }]
+        }
+      } as any)
+
+      await repos.deleteRepositories(mocktokit, TEST_CLASSROOM)
+
+      expect(mocktokit.rest.search.repos).toHaveBeenCalledWith({
+        q: `org:${TEST_CLASSROOM.organization} gh-int-${TEST_CLASSROOM.customerAbbr.toLowerCase()}-`
+      })
+      expect(mocktokit.rest.repos.delete).toHaveBeenCalledTimes(2)
+      expect(mocktokit.rest.repos.delete).toHaveBeenCalledWith({
+        owner: TEST_CLASSROOM.organization,
+        repo: 'repo-1'
+      })
+      expect(mocktokit.rest.repos.delete).toHaveBeenCalledWith({
+        owner: TEST_CLASSROOM.organization,
+        repo: 'repo-2'
+      })
+    })
+
+    it('Handles no repositories found gracefully', async () => {
+      mocktokit.rest.search.repos.mockResolvedValue({
+        data: {
+          items: []
+        }
+      } as any)
+
+      await repos.deleteRepositories(mocktokit, TEST_CLASSROOM)
+
+      expect(mocktokit.rest.search.repos).toHaveBeenCalledWith({
+        q: `org:${TEST_CLASSROOM.organization} gh-int-${TEST_CLASSROOM.customerAbbr.toLowerCase()}-`
+      })
+      expect(mocktokit.rest.repos.delete).not.toHaveBeenCalled()
     })
   })
 })

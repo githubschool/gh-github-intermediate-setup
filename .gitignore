@@ -65,3 +65,4 @@ local/
 junit.xml
 
 megalinter-reports
+gh-int-*

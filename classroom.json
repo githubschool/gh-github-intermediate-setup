@@ -1,0 +1,8 @@
+{
+  "githubServer": "github.com",
+  "organization": "organization-name",
+  "customerName": "Customer Name",
+  "customerAbbr": "CN",
+  "administrators": ["admin"],
+  "attendees": ["mona"]
+}

@@ -1,164 +1,152 @@
 import * as core from '@actions/core'
 import type { ExecOptions } from '@actions/exec'
 import * as exec from '@actions/exec'
-import * as github from '@actions/github'
-import type { GitHub } from '@actions/github/lib/utils.js'
+import { Octokit } from '@octokit/rest'
 import fs from 'fs'
-import { Bot, Common } from '../enums.js'
-import type { ClassRequest, Team, User } from '../types.js'
+import path from 'path'
+import { Common } from '../enums.js'
+import type { Classroom } from '../types.js'
+import { generateTeamName } from './teams.js'
 
 /**
  * Generates the repository name for this class and user.
  *
- * @param request Class Request
- * @param user User
+ * @param classroom Classroom
+ * @param handle GitHub Handle
  */
-export function generateRepoName(request: ClassRequest, user: User): string {
-  return `gh-int-${request.customerAbbr.toLowerCase()}-${user.handle}`
+export function generateRepoName(classroom: Classroom, handle: string): string {
+  return `gh-int-${classroom.customerAbbr.toLowerCase()}-${handle}`
 }
 
 /**
  * Creates a repository for an attendee.
  *
- * @param request Class Request
- * @param user User
- * @param team Team
+ * @param octokit Octokit
+ * @param classroom Classroom
+ * @param handle GitHub Handle
  * @returns Repository Name
  */
 export async function create(
-  request: ClassRequest,
-  user: User,
-  team: Team
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom,
+  handle: string
 ): Promise<string> {
-  core.info(`Creating Attendee Repository: ${generateRepoName(request, user)}`)
-
-  // Create the authenticated Octokit client.
-  const token: string = core.getInput('github_token', { required: true })
-  const octokit = github.getOctokit(token)
+  core.info(`Creating Repository: ${generateRepoName(classroom, handle)}`)
 
   const response = await octokit.rest.repos.createUsingTemplate({
-    template_owner: Common.OWNER,
+    template_owner: Common.TEMPLATE_OWNER,
     template_repo: Common.TEMPLATE_REPO,
-    owner: Common.OWNER,
-    name: generateRepoName(request, user),
-    description: `GitHub Intermediate - ${request.customerName}`,
+    owner: classroom.organization,
+    name: generateRepoName(classroom, handle),
+    description: `GitHub Intermediate - ${classroom.customerName}`,
     include_all_branches: true,
     private: true
   })
 
   // Grant the team access to the repository.
   await octokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
-    org: Common.OWNER,
-    team_slug: team.slug,
-    owner: Common.OWNER,
+    org: classroom.organization,
+    team_slug: generateTeamName(classroom),
+    owner: classroom.organization,
     repo: response.data.name,
     permission: 'admin'
   })
 
-  core.info(`Created Attendee Repository: ${generateRepoName(request, user)}`)
   return response.data.name
 }
 
 /**
  * Checks if the repository exists.
  *
- * @param request Class Request
- * @param user User
+ * @param octokit Octokit
+ * @param classroom Classroom
+ * @param handle GitHub Handle
  * @returns True if the Repository Exists
  */
 export async function exists(
-  request: ClassRequest,
-  user: User
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom,
+  handle: string
 ): Promise<boolean> {
-  // Create the authenticated Octokit client.
-  const token: string = core.getInput('github_token', { required: true })
-  const octokit = github.getOctokit(token)
-
   try {
     await octokit.rest.repos.get({
-      owner: Common.OWNER,
-      repo: generateRepoName(request, user)
+      owner: classroom.organization,
+      repo: generateRepoName(classroom, handle)
     })
   } catch (error: any) {
-    core.info(`Error: ${error.status}`)
     if (error.status === 404) return false
   }
 
-  core.info(`Repo Exists: ${generateRepoName(request, user)}`)
   return true
 }
 
 /**
  * Configures an attendee repository.
  *
- * @param request Class Request
- * @param user User
+ * @param octokit Octokit
+ * @param classroom Classroom
  * @param repo Repository Name
- * @param team Team
  */
 export async function configure(
-  request: ClassRequest,
-  user: User,
-  repo: string,
-  team: Team
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom,
+  repo: string
 ): Promise<void> {
-  core.info(`Configuring Attendee Repository: ${repo}`)
-
-  const workspace: string = core.getInput('workspace', { required: true })
-
-  // Create the authenticated Octokit client.
-  const token: string = core.getInput('github_token', { required: true })
-  const octokit = github.getOctokit(token)
+  core.info(`Configuring Repository: ${repo}`)
 
   // Create the deployments environment.
   await octokit.rest.repos.createOrUpdateEnvironment({
-    owner: Common.OWNER,
+    owner: classroom.organization,
     repo,
     environment_name: 'deployments'
   })
 
   // Configure GitHub Pages.
   const response = await octokit.rest.repos.createPagesSite({
-    owner: Common.OWNER,
+    owner: classroom.organization,
     repo,
     build_type: 'workflow'
   })
 
   // Update the About page of the repo to include the URL.
   await octokit.rest.repos.update({
-    owner: Common.OWNER,
+    owner: classroom.organization,
     repo,
     homepage: response.data.html_url
   })
 
   // Configure the exec options.
   const options: exec.ExecOptions = {
-    cwd: workspace,
+    cwd: process.cwd(),
     listeners: {
-      stdout: (data: Buffer) => {
-        /* istanbul ignore next */
-        core.info(data.toString())
-      },
+      stdout: (data: Buffer) => {},
       stderr: (data: Buffer) => {
         /* istanbul ignore next */
-        core.error(data.toString())
+        if (
+          !data.toString().startsWith('Cloning into') &&
+          !data.toString().startsWith('To https://') &&
+          !data.toString().startsWith('Switched to') &&
+          !data.toString().startsWith('Already on') &&
+          !data.toString().startsWith('remote:')
+        )
+          console.error(`\t${data.toString()}`)
       }
-    }
+    },
+    silent: true
   }
 
   // Clone the repository to the local workspace.
-  core.info(`Cloning ${repo} to ${workspace}/${repo}`)
   await exec.exec(
     'git',
     [
       'clone',
-      `https://x-access-token:${token}@github.com/${Common.OWNER}/${repo}.git`
+      `https://x-access-token:${process.env.GITHUB_TOKEN!}@${classroom.githubServer}/${classroom.organization}/${repo}.git`
     ],
     options
   )
 
   // Update the working directory to the checked out repository.
-  options.cwd = `${workspace}/${repo}`
+  options.cwd = path.resolve(process.cwd(), repo)
 
   // Update the remote URL to use the token.
   await exec.exec(
@@ -167,62 +155,53 @@ export async function configure(
       'remote',
       'set-url',
       'origin',
-      `https://x-access-token:${token}@github.com/${Common.OWNER}/${repo}.git`
+      `https://x-access-token:${process.env.GITHUB_TOKEN!}@${classroom.githubServer}/${classroom.organization}/${repo}.git`
     ],
     options
   )
 
-  // Configure the Git user.
-  core.info('Configuring Git')
-  await exec.exec('git', ['config', 'user.name', `"${Bot.USER}"`], options)
-  await exec.exec('git', ['config', 'user.email', `"${Bot.EMAIL}"`], options)
-
   // Configure the labs
-  await configureLab1(options, octokit)
-  await configureLab2(options, octokit)
-  await configureLab3(options, octokit)
-  await configureLab4(options, octokit)
-  await configureLab5(options, octokit)
-  await configureLab6(options, octokit)
-  await configureLab7(options, octokit)
-  await configureLab8(options, octokit)
-  await configureLab9(options, octokit)
-  await configureLab10(options, octokit)
-  await configureLab11(options, octokit)
-
-  core.info(`Configured Attendee Repository: ${repo}`)
+  await configureLab1(options, octokit, classroom)
+  await configureLab2(options, octokit, classroom)
+  await configureLab3(options, octokit, classroom)
+  await configureLab4(options, octokit, classroom)
+  await configureLab5(options, octokit, classroom)
+  await configureLab6(options, octokit, classroom)
+  await configureLab7(options, octokit, classroom)
+  await configureLab8(options, octokit, classroom)
+  await configureLab9(options, octokit, classroom)
+  await configureLab10(options, octokit, classroom)
+  await configureLab11(options, octokit, classroom)
 }
 
 /**
  * Deletes all class repositories.
  *
- * @param request Class Request
+ * @param octokit Octokit
+ * @param classroom Classroom
  */
-export async function deleteRepositories(request: ClassRequest): Promise<void> {
-  core.info(`Deleting Repositories: #${request.customerAbbr}`)
-
-  // Create the authenticated Octokit client.
-  const token: string = core.getInput('github_token', { required: true })
-  const octokit = github.getOctokit(token)
+export async function deleteRepositories(
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
+): Promise<void> {
+  core.info(`Deleting Repositories: ${classroom.customerAbbr}`)
 
   // Get the repositories for this request.
-  const prefix = `gh-int-${request.customerAbbr.toLowerCase()}-`
+  const prefix = `gh-int-${classroom.customerAbbr.toLowerCase()}-`
 
   const response = await octokit.rest.search.repos({
-    q: `org:${Common.OWNER} ${prefix}`
+    q: `org:${classroom.organization} ${prefix}`
   })
 
   // Delete the repositories for each member.
   for (const repo of response.data.items) {
-    core.info(`Deleting Repository: ${repo.name}`)
+    core.info(`\tDeleting Repository: ${repo.name}`)
 
     await octokit.rest.repos.delete({
-      owner: Common.OWNER,
+      owner: classroom.organization,
       repo: repo.name
     })
   }
-
-  core.info(`Deleted Repositories: ${request.customerAbbr}`)
 }
 
 /**
@@ -230,16 +209,16 @@ export async function deleteRepositories(request: ClassRequest): Promise<void> {
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab1(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 1: Add a Feature')
+  core.info('\tConfiguring Lab 1: Add a Feature')
 
   // Nothing needs to be done...
-
-  core.info('Configured Lab 1: Add a Feature')
 }
 
 /**
@@ -247,16 +226,16 @@ export async function configureLab1(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab2(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 2: Add Tags')
+  core.info('\tConfiguring Lab 2: Add Tags')
 
   // Nothing needs to be done...
-
-  core.info('Configured Lab 2: Add Tags')
 }
 
 /**
@@ -268,18 +247,20 @@ export async function configureLab2(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab3(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 3: Git Bisect')
+  core.info('\tConfiguring Lab 3: Git Bisect')
 
   for (let i = 1; i < 10; i++) {
     // Get the file contents.
     const filename = `keyboard_input_manager.test.${i}`
     const contents = fs.readFileSync(
-      `${process.env.GITHUB_WORKSPACE}/lab-files/3-git-bisect/${filename}`,
+      `${process.cwd()}/lab-files/3-git-bisect/${filename}`,
       'utf8'
     )
 
@@ -300,8 +281,6 @@ export async function configureLab3(
 
   await exec.exec('git', ['push'], options)
   await exec.exec('git', ['checkout', 'main'], options)
-
-  core.info('Configured Lab 3: Git Bisect')
 }
 
 /**
@@ -312,16 +291,18 @@ export async function configureLab3(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab4(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 4: Interactive Rebase')
+  core.info('\tConfiguring Lab 4: Interactive Rebase')
 
   // Get the file contents.
   const contents = fs.readFileSync(
-    `${process.env.GITHUB_WORKSPACE}/lab-files/4-interactive-rebase/html_actuator.1`,
+    `${process.cwd()}/lab-files/4-interactive-rebase/html_actuator.1`,
     'utf8'
   )
 
@@ -356,8 +337,6 @@ export async function configureLab4(
     options
   )
   await exec.exec('git', ['checkout', 'main'], options)
-
-  core.info('Configured Lab 4: Interactive Rebase')
 }
 
 /**
@@ -365,16 +344,16 @@ export async function configureLab4(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab5(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 5: Cherry-Pick')
+  core.info('\tConfiguring Lab 5: Cherry-Pick')
 
   // Nothing needs to be done...
-
-  core.info('Configured Lab 5: Cherry-Pick')
 }
 
 /**
@@ -382,16 +361,16 @@ export async function configureLab5(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab6(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 6: Protect Main')
+  core.info('\tConfiguring Lab 6: Protect Main')
 
   // Nothing needs to be done...
-
-  core.info('Configured Lab 6: Protect Main')
 }
 
 /**
@@ -399,16 +378,16 @@ export async function configureLab6(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab7(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 7: GitHub Flow')
+  core.info('\tConfiguring Lab 7: GitHub Flow')
 
   // Nothing needs to be done...
-
-  core.info('Configured Lab 7: GitHub Flow')
 }
 
 /**
@@ -416,19 +395,21 @@ export async function configureLab7(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab8(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 8: Merge Conflicts')
+  core.info('\tConfiguring Lab 8: Merge Conflicts')
 
   // Create the PRs for the first merge conflict to resolve.
   for (let i = 1; i < 3; i++) {
     // Get the file contents.
     const filename = `game_manager.${i}`
     const contents = fs.readFileSync(
-      `${process.env.GITHUB_WORKSPACE}/lab-files/8-merge-conflicts/${filename}`,
+      `${process.cwd()}/lab-files/8-merge-conflicts/${filename}`,
       'utf8'
     )
 
@@ -463,7 +444,7 @@ export async function configureLab8(
 
     // Create the pull request.
     await octokit.rest.pulls.create({
-      owner: Common.OWNER,
+      owner: classroom.organization,
       repo: (options.cwd as string).split('/').pop() as string,
       head: `feature/tile-value-${i}`,
       base: 'main',
@@ -477,7 +458,7 @@ export async function configureLab8(
     // Get the file contents.
     const filename = `game_manager.${i}`
     const contents = fs.readFileSync(
-      `${process.env.GITHUB_WORKSPACE}/lab-files/8-merge-conflicts/${filename}`,
+      `${process.cwd()}/lab-files/8-merge-conflicts/${filename}`,
       'utf8'
     )
 
@@ -512,7 +493,7 @@ export async function configureLab8(
 
     // Create the pull request.
     await octokit.rest.pulls.create({
-      owner: Common.OWNER,
+      owner: classroom.organization,
       repo: (options.cwd as string).split('/').pop() as string,
       head: `feature/start-tiles-${i}`,
       base: 'main',
@@ -520,8 +501,6 @@ export async function configureLab8(
       body: 'This PR increases the number of starting tiles in new games, so that players can get started quickly.'
     })
   }
-
-  core.info('Configured Lab 8: Merge Conflicts')
 }
 
 /**
@@ -529,16 +508,16 @@ export async function configureLab8(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab9(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 9: Run a Workflow')
+  core.info('\tConfiguring Lab 9: Run a Workflow')
 
   // Nothing needs to be done...
-
-  core.info('Configured Lab 9: Run a Workflow')
 }
 
 /**
@@ -546,16 +525,16 @@ export async function configureLab9(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab10(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 10: Create a Release')
+  core.info('\tConfiguring Lab 10: Create a Release')
 
   // Nothing needs to be done...
-
-  core.info('Configured Lab 10: Create a Release')
 }
 
 /**
@@ -563,14 +542,14 @@ export async function configureLab10(
  *
  * @param options Exec Options
  * @param octokit Octokit Client
+ * @param classroom Classroom
  */
 export async function configureLab11(
   options: ExecOptions,
-  octokit: InstanceType<typeof GitHub>
+  octokit: InstanceType<typeof Octokit>,
+  classroom: Classroom
 ): Promise<void> {
-  core.info('Configuring Lab 11: Deploy to an Environment')
+  core.info('\tConfiguring Lab 11: Deploy to an Environment')
 
   // Nothing needs to be done...
-
-  core.info('Configured Lab 11: Deploy to an Environment')
 }

@@ -1,93 +1,65 @@
 import * as core from '@actions/core'
-import * as github from '@actions/github'
-import type { IssueCommentEvent, IssuesEvent } from '@octokit/webhooks-types'
-import fs from 'fs'
+import { Octokit } from '@octokit/rest'
+import * as fs from 'fs'
 import path from 'path'
-import { dedent } from 'ts-dedent'
-import yaml from 'yaml'
 import * as actions from './actions.js'
-import {
-  AllowedIssueAction,
-  AllowedIssueCommentAction,
-  Common
-} from './enums.js'
-import * as events from './events.js'
-import * as issues from './github/issues.js'
+import { AllowedAction } from './enums.js'
+import { generateRepoName } from './github/repos.js'
+import { getClassroom, getInputs, updateClassroom } from './inputs.js'
 
 export async function run(): Promise<void> {
-  // Get needed GitHub context information.
-  const eventName = github.context.eventName
-  const payload = github.context.payload as IssueCommentEvent | IssuesEvent
-
-  // Check if the user is authorized to use this action.
-  const authorizedUsers = yaml.parse(
-    fs.readFileSync(
-      path.resolve(process.env.GITHUB_WORKSPACE!, 'instructors.yml'),
-      'utf8'
-    )
-  ).instructors
-
-  // Check if the user is authorized to use this action.
-  const user = github.context.actor
-  if (!authorizedUsers.includes(user)) {
-    // Comment on the issue to let the user know they are not authorized.
-    const token: string = core.getInput('github_token', { required: true })
-    const octokit = github.getOctokit(token)
-
-    // Add the error comment to the request issue.
-    await octokit.rest.issues.createComment({
-      issue_number: (payload as IssueCommentEvent).issue.number,
-      owner: Common.OWNER,
-      repo: Common.ISSUEOPS_REPO,
-      body: dedent(
-        `Sorry @${github.context.actor}! You are not authorized to use this action. Please contact an instructor.`
-      )
-    })
-
+  // Check if the GITHUB_TOKEN environment variable is set.
+  if (!process.env.GITHUB_TOKEN) {
+    core.error('GITHUB_TOKEN Environment Variable Not Set')
     return
   }
 
-  // Decide what action to take based on issue state and comment text.
-  const action = events.getAction(eventName, payload)
-  if (!action)
-    return core.info(`Ignoring Action: ${eventName} / ${payload.action}`)
+  const octokit = new Octokit({
+    auth: process.env.GITHUB_TOKEN!,
+    log: {
+      debug: (message: string) => {},
+      info: (message: string) => {},
+      warn: (message: string) => {},
+      error: (message: string) => {}
+    }
+  })
 
-  // The expire action always takes precedence.
-  if (action === AllowedIssueAction.EXPIRE) {
-    core.info(`Processing Action: ${action}`)
-    await actions.expire()
+  // Get the command-line inputs. Exit if not present.
+  const inputs = getInputs()
+  if (!inputs) return
 
-    return
-  }
+  // Get the classroom JSON file. Exit if not present.
+  const classroom = getClassroom()
+  if (!classroom) return
 
   try {
-    core.info(`Processing Action: ${action}`)
+    core.info(`Processing Action: ${inputs.action}`)
+    core.info('')
 
-    // Parse the issue to get the request.
-    const request = issues.parse(payload.issue, action)
+    if (inputs.action === AllowedAction.CREATE)
+      await actions.createClass(octokit, classroom)
+    else if (inputs.action === AllowedAction.CLOSE)
+      await actions.closeClass(octokit, classroom)
+    else if (inputs.action === AllowedAction.ADD_USER)
+      await actions.addUser(octokit, classroom, inputs.handle!)
+    else if (inputs.action === AllowedAction.REMOVE_USER)
+      await actions.removeUser(octokit, classroom, inputs.handle!)
+    else if (inputs.action === AllowedAction.ADD_ADMIN)
+      await actions.addAdmin(octokit, classroom, inputs.handle!)
+    else if (inputs.action === AllowedAction.REMOVE_ADMIN)
+      await actions.removeAdmin(octokit, classroom, inputs.handle!)
 
-    if (action === AllowedIssueAction.CREATE)
-      await actions.create(request, payload.issue)
-    else if (action === AllowedIssueAction.CLOSE)
-      await actions.close(request, payload.issue)
-    else if (action === AllowedIssueCommentAction.ADD_USER)
-      await actions.addUser(request, payload as IssueCommentEvent)
-    else if (action === AllowedIssueCommentAction.REMOVE_USER)
-      await actions.removeUser(request, payload as IssueCommentEvent)
+    updateClassroom(classroom)
+
+    /* istanbul ignore next */
+    for (const user of [...classroom.attendees, ...classroom.administrators]) {
+      const repoName = generateRepoName(classroom, user)
+      const repoPath = path.join(process.cwd(), repoName)
+
+      if (fs.existsSync(repoPath))
+        fs.rmSync(repoPath, { recursive: true, force: true })
+    }
   } catch (error: any) {
-    const token: string = core.getInput('github_token', { required: true })
-    const octokit = github.getOctokit(token)
-
-    // Add the error comment to the request issue.
-    await octokit.rest.issues.createComment({
-      issue_number: (payload as IssueCommentEvent).issue.number,
-      owner: Common.OWNER,
-      repo: Common.ISSUEOPS_REPO,
-      body: dedent(
-        `There was an error processing your request: \`${error.message}\``
-      )
-    })
-
-    core.setFailed(error.message)
+    core.error(error)
   }
 }

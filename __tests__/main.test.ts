@@ -1,166 +1,182 @@
 import { jest } from '@jest/globals'
-import { dedent } from 'ts-dedent'
-import * as core from '../__fixtures__/core.js'
-import * as fs from '../__fixtures__/fs.js'
-import * as github from '../__fixtures__/github.js'
-import * as octokit from '../__fixtures__/octokit.js'
-import { AllowedIssueAction, AllowedIssueCommentAction } from '../src/enums.js'
+import * as core from '../__fixtures__/@actions/core.js'
+import { AllowedAction } from '../src/enums.js'
+import { Classroom } from '../src/types.js'
 
 jest.unstable_mockModule('@actions/core', () => core)
-jest.unstable_mockModule('@actions/github', () => github)
-jest.unstable_mockModule('@octokit/rest', async () => {
-  class Octokit {
-    constructor() {
-      return octokit
-    }
-  }
 
-  return {
-    Octokit
-  }
-})
-jest.unstable_mockModule('fs', () => fs)
-
-const yaml_parse: jest.SpiedFunction<typeof import('yaml').parse> = jest.fn()
-jest.unstable_mockModule('yaml', () => ({
-  default: {
-    parse: yaml_parse
-  }
-}))
-
-const events_getAction: jest.SpiedFunction<
-  typeof import('../src/events.js').getAction
+const getInputs: jest.SpiedFunction<
+  typeof import('../src/inputs.js').getInputs
 > = jest.fn()
-const issues_parse: jest.SpiedFunction<
-  typeof import('../src/github/issues.js').parse
+const getClassroom: jest.SpiedFunction<
+  typeof import('../src/inputs.js').getClassroom
 > = jest.fn()
-const actions_create: jest.SpiedFunction<
-  typeof import('../src/actions.js').create
+const updateClassroom: jest.SpiedFunction<
+  typeof import('../src/inputs.js').updateClassroom
 > = jest.fn()
-const actions_close: jest.SpiedFunction<
-  typeof import('../src/actions.js').close
+const createClass: jest.SpiedFunction<
+  typeof import('../src/actions.js').createClass
 > = jest.fn()
-const actions_expire: jest.SpiedFunction<
-  typeof import('../src/actions.js').expire
+const closeClass: jest.SpiedFunction<
+  typeof import('../src/actions.js').closeClass
 > = jest.fn()
-const actions_addUser: jest.SpiedFunction<
-  typeof import('../src/actions.js').addUser
-> = jest.fn()
-const actions_removeUser: jest.SpiedFunction<
+const addUser: jest.SpiedFunction<typeof import('../src/actions.js').addUser> =
+  jest.fn()
+const removeUser: jest.SpiedFunction<
   typeof import('../src/actions.js').removeUser
 > = jest.fn()
+const addAdmin: jest.SpiedFunction<
+  typeof import('../src/actions.js').addAdmin
+> = jest.fn()
+const removeAdmin: jest.SpiedFunction<
+  typeof import('../src/actions.js').removeAdmin
+> = jest.fn()
 
-jest.unstable_mockModule('../src/events.js', () => {
-  return {
-    getAction: events_getAction
-  }
-})
-jest.unstable_mockModule('../src/github/issues.js', () => {
-  return {
-    parse: issues_parse
-  }
-})
-jest.unstable_mockModule('../src/actions.js', () => {
-  return {
-    create: actions_create,
-    close: actions_close,
-    expire: actions_expire,
-    addUser: actions_addUser,
-    removeUser: actions_removeUser
-  }
-})
+jest.unstable_mockModule('../src/inputs.js', () => ({
+  getInputs,
+  getClassroom,
+  updateClassroom
+}))
+jest.unstable_mockModule('../src/actions.js', () => ({
+  createClass,
+  closeClass,
+  addUser,
+  removeUser,
+  addAdmin,
+  removeAdmin
+}))
 
 const main = await import('../src/main.js')
 
-const { Octokit } = await import('@octokit/rest')
-const mocktokit = jest.mocked(new Octokit())
-
 describe('main', () => {
   beforeEach(() => {
-    process.env.GITHUB_WORKSPACE = '.'
-
-    fs.readFileSync.mockReturnValue(dedent`instructors:
-
-    - test`)
-
-    yaml_parse.mockReturnValue({
-      instructors: github.context.actor
-    })
+    process.env.GITHUB_TOKEN = 'MY_TOKEN'
   })
 
   afterEach(() => {
     jest.resetAllMocks()
   })
 
-  it('Fails if the User is not an Instructor', async () => {
-    yaml_parse.mockReturnValue({
-      instructors: ['not-an-instructor']
+  it('Fails if the GITHUB_TOKEN is not present', async () => {
+    delete process.env.GITHUB_TOKEN
+
+    await main.run()
+
+    expect(core.error).toHaveBeenCalledWith(
+      'GITHUB_TOKEN Environment Variable Not Set'
+    )
+  })
+
+  it('Fails if the inputs are not present', async () => {
+    getInputs.mockReturnValue(undefined)
+
+    await main.run()
+
+    expect(createClass).not.toHaveBeenCalled()
+    expect(closeClass).not.toHaveBeenCalled()
+    expect(addUser).not.toHaveBeenCalled()
+    expect(removeUser).not.toHaveBeenCalled()
+    expect(addAdmin).not.toHaveBeenCalled()
+    expect(removeAdmin).not.toHaveBeenCalled()
+  })
+
+  it('Fails if the classroom is not present', async () => {
+    getInputs.mockReturnValue({
+      action: AllowedAction.CREATE
+    })
+    getClassroom.mockReturnValue(undefined)
+
+    await main.run()
+
+    expect(createClass).not.toHaveBeenCalled()
+    expect(closeClass).not.toHaveBeenCalled()
+    expect(addUser).not.toHaveBeenCalled()
+    expect(removeUser).not.toHaveBeenCalled()
+    expect(addAdmin).not.toHaveBeenCalled()
+    expect(removeAdmin).not.toHaveBeenCalled()
+  })
+
+  it('Processes the create action', async () => {
+    getInputs.mockReturnValue({
+      action: AllowedAction.CREATE
+    })
+    getClassroom.mockReturnValue({} as Classroom)
+
+    await main.run()
+
+    expect(createClass).toHaveBeenCalled()
+  })
+
+  it('Processes the close action', async () => {
+    getInputs.mockReturnValue({
+      action: AllowedAction.CLOSE
+    })
+    getClassroom.mockReturnValue({} as Classroom)
+
+    await main.run()
+
+    expect(closeClass).toHaveBeenCalled()
+  })
+
+  it('Processes the add user action', async () => {
+    getInputs.mockReturnValue({
+      action: AllowedAction.ADD_USER,
+      handle: 'test'
+    })
+    getClassroom.mockReturnValue({} as Classroom)
+
+    await main.run()
+
+    expect(addUser).toHaveBeenCalledWith(expect.anything(), {}, 'test')
+  })
+
+  it('Processes the remove user action', async () => {
+    getInputs.mockReturnValue({
+      action: AllowedAction.REMOVE_USER,
+      handle: 'test'
+    })
+    getClassroom.mockReturnValue({} as Classroom)
+
+    await main.run()
+
+    expect(removeUser).toHaveBeenCalledWith(expect.anything(), {}, 'test')
+  })
+
+  it('Processes the add admin action', async () => {
+    getInputs.mockReturnValue({
+      action: AllowedAction.ADD_ADMIN,
+      handle: 'test'
+    })
+    getClassroom.mockReturnValue({} as Classroom)
+
+    await main.run()
+
+    expect(addAdmin).toHaveBeenCalledWith(expect.anything(), {}, 'test')
+  })
+
+  it('Processes the remove admin action', async () => {
+    getInputs.mockReturnValue({
+      action: AllowedAction.REMOVE_ADMIN,
+      handle: 'test'
+    })
+    getClassroom.mockReturnValue({} as Classroom)
+
+    await main.run()
+
+    expect(removeAdmin).toHaveBeenCalledWith(expect.anything(), {}, 'test')
+  })
+
+  it('Handles errors', async () => {
+    getInputs.mockReturnValue({
+      action: AllowedAction.CREATE
+    })
+    getClassroom.mockReturnValue({} as Classroom)
+    createClass.mockImplementation(() => {
+      throw new Error('Test error')
     })
 
     await main.run()
 
-    expect(mocktokit.rest.issues.createComment).toHaveBeenCalled()
-  })
-
-  it('Skips Invalid Actions', async () => {
-    events_getAction.mockReturnValue(undefined)
-
-    await main.run()
-
-    expect(actions_create).not.toHaveBeenCalled()
-    expect(actions_close).not.toHaveBeenCalled()
-    expect(actions_addUser).not.toHaveBeenCalled()
-    expect(actions_removeUser).not.toHaveBeenCalled()
-    expect(core.setFailed).not.toHaveBeenCalled()
-  })
-
-  it('Processes an Expire Event', async () => {
-    events_getAction.mockReturnValue(AllowedIssueAction.EXPIRE)
-
-    await main.run()
-
-    expect(actions_expire).toHaveBeenCalledTimes(1)
-  })
-
-  it('Processes a Class Create Event', async () => {
-    events_getAction.mockReturnValue(AllowedIssueAction.CREATE)
-
-    await main.run()
-
-    expect(actions_create).toHaveBeenCalledTimes(1)
-  })
-
-  it('Processes a Class Close Event', async () => {
-    events_getAction.mockReturnValue(AllowedIssueAction.CLOSE)
-
-    await main.run()
-
-    expect(actions_close).toHaveBeenCalledTimes(1)
-  })
-
-  it('Processes an Add User Event', async () => {
-    events_getAction.mockReturnValue(AllowedIssueCommentAction.ADD_USER)
-
-    await main.run()
-
-    expect(actions_addUser).toHaveBeenCalledTimes(1)
-  })
-
-  it('Processes a Remove User Event', async () => {
-    events_getAction.mockReturnValue(AllowedIssueCommentAction.REMOVE_USER)
-
-    await main.run()
-
-    expect(actions_removeUser).toHaveBeenCalledTimes(1)
-  })
-
-  it('Comments if an Error Occurs', async () => {
-    events_getAction.mockReturnValue(AllowedIssueAction.CREATE)
-    actions_create.mockRejectedValue(new Error('Test Error'))
-
-    await main.run()
-
-    expect(mocktokit.rest.issues.createComment).toHaveBeenCalled()
-    expect(core.setFailed).toHaveBeenCalled()
+    expect(core.error).toHaveBeenCalledWith(new Error('Test error'))
   })
 })

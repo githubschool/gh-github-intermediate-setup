@@ -1,35 +1,25 @@
-import { AllowedIssueAction, AllowedIssueCommentAction } from './enums.js'
+import { AllowedAction } from './enums.js'
 
-/** Class Request */
-export type ClassRequest = {
-  /** Request Action */
-  action: AllowedIssueAction | AllowedIssueCommentAction
+/** Action Inputs */
+export type ActionInputs = {
+  /** Action */
+  action: AllowedAction
+  /** GitHub Handle */
+  handle?: string
+}
+
+/** Classroom */
+export type Classroom = {
+  /** GitHub Server URL */
+  githubServer: string
+  /** GitHub Organization */
+  organization: string
   /** Customer Name */
   customerName: string
   /** Customer Abbreviation */
   customerAbbr: string
-  /** Start Date */
-  startDate: Date
-  /** End Date */
-  endDate: Date
+  /** Administrators */
+  administrators: string[]
   /** Attendees */
-  attendees: User[]
-  /** Team */
-  team?: string
-}
-
-/** Team Information */
-export type Team = {
-  /** ID */
-  id: number
-  /** Slug */
-  slug: string
-}
-
-/** User Information */
-export type User = {
-  /** Email Address */
-  email: string
-  /** GitHub.com Handle */
-  handle: string
+  attendees: string[]
 }

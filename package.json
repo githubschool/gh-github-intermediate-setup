@@ -1,17 +1,17 @@
 {
-  "name": "gh-github-intermediate-issueops",
+  "name": "gh-github-intermediate-admin",
   "description": "GitHub Intermediate Offering: IssueOps Automation",
   "version": "2.0.6",
   "author": "Nick Alteen <ncalteen@github.com>",
   "private": true,
   "type": "module",
-  "homepage": "https://github.com/githubschool/gh-github-intermediate-issueops",
+  "homepage": "https://github.com/githubschool/gh-github-intermediate-admin",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/githubschool/gh-github-intermediate-issueops.git"
+    "url": "git+https://github.com/githubschool/gh-github-intermediate-admin.git"
   },
   "bugs": {
-    "url": "https://github.com/githubschool/gh-github-intermediate-issueops/issues"
+    "url": "https://github.com/githubschool/gh-github-intermediate-admin/issues"
   },
   "keywords": [],
   "engines": {
@@ -36,10 +36,8 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/exec": "^1.1.1",
-    "@actions/github": "^6.0.0",
     "@octokit/rest": "^21.1.1",
-    "ts-dedent": "^2.2.0",
-    "yaml": "^2.6.0"
+    "ts-dedent": "^2.2.0"
   },
   "devDependencies": {
     "@eslint/compat": "^1.2.8",

@@ -12,6 +12,7 @@ export const rest = {
     update: jest.fn()
   },
   orgs: {
+    cancelInvitation: jest.fn(),
     checkMembershipForUser: jest.fn(),
     createOrUpdateCustomPropertiesValuesForRepos: jest.fn(),
     getMembershipForUser: jest.fn(),
@@ -30,13 +31,20 @@ export const rest = {
     getContent: jest.fn(),
     update: jest.fn()
   },
+  search: {
+    repos: jest.fn()
+  },
   teams: {
     addOrUpdateMembershipForUserInOrg: jest.fn(),
     addOrUpdateRepoPermissionsInOrg: jest.fn(),
     create: jest.fn(),
     deleteInOrg: jest.fn(),
     getByName: jest.fn(),
+    getMembershipForUserInOrg: jest.fn(),
     listMembersInOrg: jest.fn(),
     removeMembershipForUserInOrg: jest.fn()
+  },
+  users: {
+    getAuthenticated: jest.fn()
   }
 }
