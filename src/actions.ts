@@ -49,7 +49,7 @@ export async function createClass(
     // Sleep 5s to wait for the repo to be created and initial commit pushed.
     /* istanbul ignore next */
     if (process.env.NODE_ENV !== 'test')
-      await new Promise((resolve) => setTimeout(resolve, 5000))
+      await new Promise((resolve) => setTimeout(resolve, 10000))
 
     await repos.configure(octokit, classroom, repo)
   }
@@ -147,7 +147,7 @@ export async function addUser(
   // Sleep 5s to wait for the repo to be created and initial commit pushed.
   /* istanbul ignore next */
   if (process.env.NODE_ENV !== 'test')
-    await new Promise((resolve) => setTimeout(resolve, 5000))
+    await new Promise((resolve) => setTimeout(resolve, 10000))
 
   await repos.configure(octokit, classroom, repo)
 
@@ -263,7 +263,7 @@ export async function addAdmin(
   // Sleep 5s to wait for the repo to be created and initial commit pushed.
   /* istanbul ignore next */
   if (process.env.NODE_ENV !== 'test')
-    await new Promise((resolve) => setTimeout(resolve, 5000))
+    await new Promise((resolve) => setTimeout(resolve, 10000))
 
   await repos.configure(octokit, classroom, repo)
 

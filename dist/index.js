@@ -31656,7 +31656,7 @@ async function createClass(octokit, classroom) {
         // Sleep 5s to wait for the repo to be created and initial commit pushed.
         /* istanbul ignore next */
         if (process.env.NODE_ENV !== 'test')
-            await new Promise((resolve) => setTimeout(resolve, 5000));
+            await new Promise((resolve) => setTimeout(resolve, 10000));
         await configure(octokit, classroom, repo);
     }
     coreExports.info('');
@@ -31730,7 +31730,7 @@ async function addUser(octokit, classroom, handle) {
     // Sleep 5s to wait for the repo to be created and initial commit pushed.
     /* istanbul ignore next */
     if (process.env.NODE_ENV !== 'test')
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, 10000));
     await configure(octokit, classroom, repo);
     classroom.attendees.push(handle);
     coreExports.info(dedent `Added User to Classroom: ${handle}
@@ -31815,7 +31815,7 @@ async function addAdmin(octokit, classroom, handle) {
     // Sleep 5s to wait for the repo to be created and initial commit pushed.
     /* istanbul ignore next */
     if (process.env.NODE_ENV !== 'test')
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, 10000));
     await configure(octokit, classroom, repo);
     classroom.administrators.push(handle);
     coreExports.info(dedent `Added Admin to Classroom: ${handle}
@@ -31961,6 +31961,11 @@ function getClassroom() {
         }
         if (parsedFile.attendees === undefined) {
             coreExports.error('Classroom File Missing Attendees Field');
+            return undefined;
+        }
+        // Validate the organization matches GitHub org slug conventions.
+        if (!/^[a-zA-Z0-9-_]+$/.test(parsedFile.organization)) {
+            coreExports.error('Organization Field Invalid (Only Alphanumeric, Hyphen, Underscore)');
             return undefined;
         }
         return {

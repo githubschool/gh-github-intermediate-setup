@@ -106,6 +106,14 @@ export function getClassroom(): Classroom | undefined {
       return undefined
     }
 
+    // Validate the organization matches GitHub org slug conventions.
+    if (!/^[a-zA-Z0-9-_]+$/.test(parsedFile.organization)) {
+      core.error(
+        'Organization Field Invalid (Only Alphanumeric, Hyphen, Underscore)'
+      )
+      return undefined
+    }
+
     return {
       githubServer:
         /* istanbul ignore next */ parsedFile.githubServer?.trim() ||
